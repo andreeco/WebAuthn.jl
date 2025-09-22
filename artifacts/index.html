@@ -1,0 +1,49 @@
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta name="csrf-token" content="">
+      <meta charset="UTF-8">
+      <title>WebAuthn Passkey Demo</title>
+      <script src="/webauthn_register.js"></script>
+      <script src="/webauthn_login.js"></script>
+    </head>
+    <body>
+      <h1>WebAuthn Passkey Demo</h1>
+      <p>
+      This demo lets you register and use passkeys. Choose a username or leave blank to be auto-assigned.
+      </p>
+      <h2>Register a new Passkey</h2>
+      <form id="register-form" onsubmit="event.preventDefault(); startWebAuthnRegistration('register-username', 'regres');">
+        <label>
+          Username (optional):<br>
+          <input id="register-username" type="text" placeholder="Leave blank for random">
+        </label><br>
+        <label>
+          Device label (optional):<br>
+          <input id="passkey-name" type="text" value="my device label">
+        </label><br>
+        <button type="submit">Register Passkey</button>
+      </form>
+      <div id="regres"></div>
+      <hr>
+      <h2>Login using Passkey</h2>
+      <form id="login-form" onsubmit="event.preventDefault(); startWebAuthnLogin('login-username', 'loginres');">
+        <label>
+          Username:<br>
+          <input id="login-username" type="text" placeholder="Leave blank for discoverable login">
+        </label><br>
+        <button type="submit">Login</button>
+      </form>
+      <div id="loginres"></div>
+      <hr>
+      <details>
+        <summary><b>Instructions</b></summary>
+        <ul>
+          <li>You may <b>choose a username</b> (email/handle), or leave it blank to get an auto-assigned one.</li>
+          <li>Remember your username for login if you provided one.</li>
+          <li>If you leave username blank at login, the server will attempt a usernameless login (if your authenticator supports it).</li>
+          <li>The "Device label" lets you assign a name to this passkey.</li>
+        </ul>
+      </details>
+    </body>
+    </html>

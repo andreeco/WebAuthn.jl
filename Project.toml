@@ -3,5 +3,25 @@ uuid = "1dad91b0-12bd-4c75-9bdb-2efc2e586384"
 authors = ["André Herling <andreeco@herling.pro>"]
 version = "0.1.0"
 
+[deps]
+Base64 = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+CBOR = "7f3e1038-61bc-5414-967e-017c9d82adda"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+OpenSSL_jll = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+Sodium = "4f5b5e99-b0ad-42cd-b47a-334e172ec8bd"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
+
 [compat]
+Base64 = "1.11.0"
+CBOR = "0.2.0"
+Dates = "1.11.0"
+JSON3 = "1.14.3"
+OpenSSL_jll = "3.5.2"
+Random = "1.11.0"
+SHA = "0.7.0"
+Sodium = "1.1.2"
+UUIDs = "1.11.0"
 julia = "1.11"
