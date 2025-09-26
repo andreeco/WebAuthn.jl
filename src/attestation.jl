@@ -51,52 +51,6 @@ function verify_attestation_object(attObj_b64::String,
     end
 end
 
-#=
-julia> using WebAuthn, CBOR, Sodium, SHA
-
-# -- 1. Generate a keypair (Ed25519 for simplicity) --
-julia> pk = Vector{UInt8}(undef, Sodium.crypto_sign_PUBLICKEYBYTES);
-julia> sk = Vector{UInt8}(undef, Sodium.crypto_sign_SECRETKEYBYTES);
-julia> Sodium.crypto_sign_keypair(pk, sk);
-
-# -- 2. Create a valid CBOR-encoded COSE key (OKP for Ed25519) --
-julia> cose = Dict(1=>1, 3=>-8, -1=>6, -2=>pk);
-julia> cbor_pk = CBOR.encode(cose);
-
-# -- 3. Compose authenticatorData with all needed fields --
-julia> rpId = "example.com";
-julia> rpIdHash = SHA.sha256(Vector{UInt8}(rpId));     # 32 bytes
-julia> flags = 0x41;                                   # User Present + attested
-julia> signCount = UInt8[0,0,0,1];                     # Just a value
-julia> aaguid = zeros(UInt8,16);                       # 16 bytes
-julia> credId = rand(UInt8,16);                        # Some random id
-julia> credIdLen = [UInt8(length(credId) >> 8), UInt8(length(credId)&0xff)]; # Big Endian
-julia> authData = vcat(rpIdHash, flags, signCount, aaguid, credIdLen, credId, cbor_pk);
-
-# -- 4. Prepare clientDataJSON and signature message --
-julia> clientDataJSON = b"""{"type":"webauthn.create","challenge":"abc","origin":"https://example.com"}""";
-julia> clientDataHash = SHA.sha256(clientDataJSON);
-julia> msg = vcat(authData, clientDataHash);
-
-# -- 5. Make the Ed25519 signature on the message --
-julia> sig = Vector{UInt8}(undef, Sodium.crypto_sign_BYTES);
-julia> sl = Ref{UInt64}();
-julia> Sodium.crypto_sign_detached(sig, sl, msg, length(msg), sk);
-
-# -- 6. Build attStmt (the minimal self-attestation format) --
-julia> attStmt = Dict("sig"=>sig, "alg"=>-8);
-
-# -- 7. Now verify: This returns true! --
-julia> verify_attestation_packed(attStmt, msg, authData)
-true
-
-# -- 8. Negative test: Tweak the sig, see a failure --
-julia> sig2 = copy(sig); sig2[1] ⊻= 0xFF;
-julia> attStmt_bad = Dict("sig"=>sig2, "alg"=>-8);
-julia> verify_attestation_packed(attStmt_bad, msg, authData)
-false
-=#
-
 """
     verify_attestation_packed(attStmt::Dict, msg::Vector{UInt8},
         authData::Vector{UInt8}[, clientDataJSON::Vector{UInt8}])::Bool

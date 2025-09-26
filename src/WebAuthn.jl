@@ -1,8 +1,3 @@
-#=
-Julia’s OpenSSL_jll v3.x failed to load PEM public keys (shows decoder "unsupported" error) because the artifact did not include the required ossl-modules/provider .so files (default.so, legacy.so, etc). These providers are required by OpenSSL 3.x to load, parse, and decode PEM or DER keys. No code, ccall, or Julia environment variable can work around it if the modules are missing from the artifact. Even explicit provider loading or setting OPENSSL_MODULES failed, because there was nothing for OpenSSL to load. The root cause is that the BinaryBuilder build script for OpenSSL_jll only installs libcrypto/libssl and not the providers; to fix, the ossl-modules directory must be bundled in the artifact. Until then, PEM/DER key operations in Julia with OpenSSL 3.x will fail; using system OpenSSL or OpenSSL_jll v1.1 or parsing COSE keys without PEM are the only workarounds for now.
-=#
-
-
 #chrome://settings/securityKeys
 
 """
