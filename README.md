@@ -103,7 +103,7 @@ _See also:_ [`cose_key_to_pem`] for PEM export/interoperation.
 
 ## Tips
 
-- All crypto uses [OpenSSL_jll](https://github.com/JuliaCrypto/OpenSSL_jll.jl) and [Sodium.jl](https://github.com/JuliaCrypto/Sodium.jl).
+- All crypto uses [OpenSSL_jll](https://github.com/JuliaBinaryWrappers/OpenSSL_jll.jl) and [Sodium.jl](https://github.com/Gnimuc/Sodium.jl).
 - Always verify the **challenge** and client **origin** in every response.
 - Check **signCount** to stop replay or clone attacks.
 - For user presence/verification, check flags in authenticator data (see FIDO2 spec).
