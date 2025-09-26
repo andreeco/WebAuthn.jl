@@ -291,8 +291,7 @@ srv = HTTP.serve!(router, Sockets.localhost, 8000)
 
 ## Documentation
 
-Full docs are auto-published at https://andreeco.github.io/WebAuthn.jl/dev
-
+Full docs are auto-published at [WebAuthn.jl](https://andreeco.github.io/WebAuthn.jl/dev).
 ---
 
 ## Contributions
