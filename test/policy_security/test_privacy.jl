@@ -8,8 +8,6 @@ using Test
 
 using Test, WebAuthn, Logging
 
-using Test, WebAuthn, Logging
-
 @testset "Privacy Extensions/Logging" begin
     # 1. Capture logs to verify no PII is written
     struct CaptureLogger <: AbstractLogger

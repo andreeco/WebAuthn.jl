@@ -1,5 +1,4 @@
 export base64urlencode, base64urldecode
-export generate_challenge
 
 """
     base64urlencode(bytes::Vector{UInt8})::String

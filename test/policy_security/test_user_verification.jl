@@ -6,8 +6,6 @@
 #   - Failure if UV/UP missing when required, pass otherwise
 using Test, WebAuthn
 
-using Test, WebAuthn
-
 "Extract flags from WebAuthn authenticatorData"
 function get_flags(ad::Vector{UInt8})
     length(ad) < 33 && throw(ArgumentError("authData too short"))
