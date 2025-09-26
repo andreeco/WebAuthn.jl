@@ -28,8 +28,8 @@ end
 @testset "find_bitstring utility" begin
     # EC-style: Bit string, unused bits=0, 0x04 prefix, len=66
     der = vcat(UInt8[0x03, 0x42, 0x00, 0x04], rand(UInt8, 65))
-    idx, bitlen, unusedbits, content_off = WebAuthn.find_bitstring(der; 
-    require_uncompressed=true, required_len=66)
+    idx, bitlen, unusedbits, content_off = WebAuthn.find_bitstring(der;
+        require_uncompressed=true, required_len=66)
     @test idx == 1
     @test bitlen == 0x42
     @test unusedbits == 0x00
@@ -37,15 +37,15 @@ end
 
     # No suitable bit string
     bad_der = UInt8[0x03, 0x42, 0x00, 0x05]  # not uncompressed (0x04)
-    @test_throws ErrorException WebAuthn.find_bitstring(bad_der; 
-    require_uncompressed=true, required_len=66)
+    @test_throws ErrorException WebAuthn.find_bitstring(bad_der;
+        require_uncompressed=true, required_len=66)
 end
 
 @testset "pem_to_der utility" begin
     # Good PEM
     pem = "-----BEGIN PUBLIC KEY-----\nQUJDRA==\n-----END PUBLIC KEY-----"
     der = WebAuthn.pem_to_der(pem)
-    @test der == UInt8['A','B','C','D']
+    @test der == UInt8['A', 'B', 'C', 'D']
 
     # Bad PEM: bad header/footer
     badpem = "NOPE"
@@ -55,10 +55,10 @@ end
 # Der↔PEM round‐trip
 @testset "der_to_pem / pem_to_der roundtrip" begin
     # pick a small arbitrary DER blob:
-    der = UInt8[0x30,0x03,0x02,0x01,0x05]  # DER for INTEGER(5)
+    der = UInt8[0x30, 0x03, 0x02, 0x01, 0x05]  # DER for INTEGER(5)
     pem = WebAuthn.der_to_pem(der, "INTEGER")
     @test occursin("-----BEGIN INTEGER-----", pem)
-    @test occursin("-----END INTEGER-----",   pem)
+    @test occursin("-----END INTEGER-----", pem)
     der2 = WebAuthn.pem_to_der(pem)
     @test der2 == der
 end
@@ -72,7 +72,7 @@ end
         0x03, 0x01, 0x07, 0x03, 0x42, 0x00
     ]
     # sample 65‐byte uncompressed point:
-    pubpoint = UInt8[0x04; rand(UInt8,64)]
+    pubpoint = UInt8[0x04; rand(UInt8, 64)]
     der = vcat(spki_prefix, pubpoint)
 
     # 1) extract as PEM
@@ -88,12 +88,12 @@ end
 
 # parse_assertion
 @testset "parse_assertion" begin
-    ad    = UInt8[1,2,3,4,5]
-    sig   = UInt8[0xAA, 0xBB, 0xCC]
-    b64_ad  = WebAuthn.base64urlencode(ad)
+    ad = UInt8[1, 2, 3, 4, 5]
+    sig = UInt8[0xAA, 0xBB, 0xCC]
+    b64_ad = WebAuthn.base64urlencode(ad)
     b64_sig = WebAuthn.base64urlencode(sig)
     ad2, sig2 = WebAuthn.parse_assertion(b64_ad, b64_sig)
-    @test ad2  == ad
+    @test ad2 == ad
     @test sig2 == sig
 end
 
@@ -104,8 +104,10 @@ end
     GI17tvaN6KEkBukdOj8cXnZSnhFuPrf8ajP8KrRoYiZqHVFy8zyrPJzFnw==
     -----END PUBLIC KEY-----
     """
-    p256_x_hex = "2b80960472264600153d7ae6503ed584d156d6c52c188d7bb6f68de8a12406e9"
-    p256_y_hex = "1d3a3f1c5e76529e116e3eb7fc6a33fc2ab46862266a1d5172f33cab3c9cc59f"
+    p256_x_hex = "2b80960472264600153d7ae6503ed584d156d6c52c188d7bb6f68de8a124\
+    06e9"
+    p256_y_hex = "1d3a3f1c5e76529e116e3eb7fc6a33fc2ab46862266a1d5172f33cab3c9c\
+    c59f"
     x, y = parse_ec_pem_xy(p256_pem)
     @test lowercase(bytes2hex(x)) == p256_x_hex
     @test lowercase(bytes2hex(y)) == p256_y_hex
@@ -139,7 +141,8 @@ end
     MCowBQYDK2VwAyEAoi3rnmJUD+qXNlp2pBkQWpXCUUjccW+6Ue5r0QDPF94=
     -----END PUBLIC KEY-----
     """
-    ed_x_hex = "a22deb9e62540fea97365a76a419105a95c25148dc716fba51ee6bd100cf17de"
+    ed_x_hex = "a22deb9e62540fea97365a76a419105a95c25148dc716fba51ee6bd100c\
+    f17de"
     x = parse_ed25519_pem_x(edpem)
     @test lowercase(bytes2hex(x)) == ed_x_hex
     @test length(x) == 32
@@ -174,18 +177,18 @@ end
     @test Sodium.crypto_sign_keypair(pk, sk) == 0
 
     # make a COSE OKP struct and convert to PEM
-    cose = Dict(1=>1, 3=>-8, -1=>6, -2=>pk)
+    cose = Dict(1 => 1, 3 => -8, -1 => 6, -2 => pk)
     key = WebAuthn.cose_key_parse(cose)
     pem = WebAuthn.cose_key_to_pem(key)
 
     # random authenticatorData + clientDataJSON
-    ad  = rand(UInt8, 37)
+    ad = rand(UInt8, 37)
     cdj = rand(UInt8, 32)
     msg = vcat(ad, SHA.sha256(cdj))
 
     # sign via Sodium
     sig = Vector{UInt8}(undef, Sodium.crypto_sign_BYTES)
-    sl  = Ref{Culonglong}()
+    sl = Ref{Culonglong}()
     @test Sodium.crypto_sign_detached(sig, sl, msg, length(msg), sk) == 0
 
     # now verify via String‐PEM dispatch
@@ -193,6 +196,7 @@ end
     @test ok
 
     # flip a byte → should fail
-    sig2 = copy(sig); sig2[1] ⊻= 0xFF
+    sig2 = copy(sig)
+    sig2[1] ⊻= 0xFF
     @test !verify_webauthn_signature(pem, ad, cdj, sig2)
 end
