@@ -1,8 +1,10 @@
 # test_attestation_neg.jl
 # --------------------------------------------------
-# Purpose: Negative/broken/edge-case attestation test vectors: corrupted sig, bad fmt, missing fields
+# Purpose: Negative/broken/edge-case attestation test vectors: corrupted sig, 
+# bad fmt, missing fields
 # Tests:
-#   - Each supported attestation format fails gracefully/securely for malformed, tampered, missing, or invalid data
+#   - Each supported attestation format fails gracefully/securely for malformed, 
+# tampered, missing, or invalid data
 
 using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
 

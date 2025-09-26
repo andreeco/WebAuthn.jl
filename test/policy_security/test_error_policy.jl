@@ -63,7 +63,8 @@ using Test, WebAuthn, CBOR
         @test !occursin("[]", msg)
         @test typeof(msg) == String
     end
-    bad_cose = CBOR.encode(Dict(1 => 1, -1 => 6, -2 => rand(UInt8, 32), 3 => -232435))
+    bad_cose = CBOR.encode(Dict(1 => 1, -1 => 6, -2 => rand(UInt8, 32),
+        3 => -232435))
     try
         cose_key_parse(CBOR.decode(bad_cose))
         @test false
