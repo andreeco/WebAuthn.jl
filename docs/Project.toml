@@ -1,3 +1,7 @@
 [deps]
+CBOR = "7f3e1038-61bc-5414-967e-017c9d82adda"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+Sodium = "4f5b5e99-b0ad-42cd-b47a-334e172ec8bd"
 WebAuthn = "1dad91b0-12bd-4c75-9bdb-2efc2e586384"
