@@ -9,6 +9,10 @@ It provides end-to-end functions for registration and login, CBOR/COSE key parsi
 
 ---
 
+!!! warning
+    The package is currently not production ready and needs review.
+
+
 ## Features
 
 - CBOR/COSE key parsing (P-256, RSA, Ed25519)
@@ -287,11 +291,6 @@ HTTP.register!(router, "POST", "/webauthn/login", serve_loginfinish)
 srv = HTTP.serve!(router, Sockets.localhost, 8000)
 ```
 
----
-
-## Documentation
-
-Full docs are auto-published at [WebAuthn.jl](https://andreeco.github.io/WebAuthn.jl/dev).
 ---
 
 ## Contributions

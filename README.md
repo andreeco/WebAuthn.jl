@@ -11,6 +11,9 @@ It provides end-to-end functions for registration and login, CBOR/COSE key parsi
 
 ---
 
+!!! warning
+    The package is currently not production ready and needs review.
+
 ## Features
 
 - CBOR/COSE key parsing (P-256, RSA, Ed25519)
