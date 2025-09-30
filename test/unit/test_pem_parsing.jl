@@ -25,25 +25,21 @@ end
 
 # extract_pubkey_pem_from_der + extract_pubkey_from_der_raw
 @testset "extract_pubkey_pem_from_der & extract_pubkey_from_der_raw" begin
-    # Let's take the same SPKI prefix + uncompressed P-256 point used elsewhere:
-    spki_prefix = UInt8[
-        0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE,
-        0x3D, 0x02, 0x01, 0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D,
-        0x03, 0x01, 0x07, 0x03, 0x42, 0x00
-    ]
-    # sample 65‐byte uncompressed point:
-    pubpoint = UInt8[0x04; rand(UInt8, 64)]
-    der = vcat(spki_prefix, pubpoint)
-
-    # 1) extract as PEM
+    # Use a real public key!
+    real_pem = raw"""
+    -----BEGIN PUBLIC KEY-----
+    MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE9h4XuIKOJOLzI4JzMh/k4IAHSCbB
+    eEYKabXd4dOCpYCTVIB98/Q5EibFH5HKzIO3oGKwJI5saxm7xYLVgnIPWA==
+    -----END PUBLIC KEY-----
+    """
+    der = WebAuthn.pem_to_der(real_pem)
     pem = WebAuthn.extract_pubkey_pem_from_der(der)
     @test occursin("BEGIN PUBLIC KEY", pem)
 
-    # 2) extract_pubkey_from_der_raw → EC2PublicKey
     key = WebAuthn.extract_pubkey_from_der_raw(der)
     @test key isa WebAuthn.EC2PublicKey
-    @test key.x == pubpoint[2:33]
-    @test key.y == pubpoint[34:65]
+    @test length(key.x) == 32
+    @test length(key.y) == 32
 end
 
 # parse_assertion

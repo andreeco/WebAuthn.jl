@@ -1,4 +1,6 @@
-using Test, Base64, WebAuthn.ASN1
+using Test, Base64, WebAuthn, WebAuthn.ASN1
+
+WebAuthn.ASN1.EXTERNAL_DER_VALIDATION[] = false
 
 @testset "ASN.1 DER Roundtrip" begin
     vals = [
@@ -137,8 +139,10 @@ end
 
 # new 
 
+#const TESTVEC_DIR = joinpath(@__DIR__, "../vectors/der_testvectors")
+const TESTVEC_DIR = joinpath(dirname(pathof(WebAuthn)), 
+"..", "test", "vectors", "der_testvectors")
 
-const TESTVEC_DIR = joinpath(@__DIR__, "../vectors/der_testvectors")
 
 "Helper: Read DER from testvectors directory"
 function load_der(name)
@@ -262,3 +266,5 @@ end
         end
     end
 end
+
+WebAuthn.ASN1.EXTERNAL_DER_VALIDATION[] = true

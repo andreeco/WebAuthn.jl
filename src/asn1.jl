@@ -5,7 +5,20 @@ and I must check it myself too (more).
 
 module ASN1
 
-@warn "ASN1 is experimental and libasn1_jll might be a more secure alternative!"
+using OpenSSL_jll
+
+"""
+    EXTERNAL_DER_VALIDATION
+
+If `true`, all DER input is strictly validated with an external crypto library 
+(OpenSSL) and parsing is rejected unless it is a recognized public key 
+structure. 
+
+Disabling this is insecure!
+"""
+const EXTERNAL_DER_VALIDATION = Ref(false)
+
+@warn "ASN1 is experimental!"
 
 export ASN1Value, ASN1Integer, ASN1Boolean, ASN1String, ASN1OID,
     ASN1Null, ASN1OctetString, ASN1BitString, ASN1Unknown,
@@ -13,13 +26,59 @@ export ASN1Value, ASN1Integer, ASN1Boolean, ASN1String, ASN1OID,
 
 using Base64
 
+#_verify_der_strict(data) = true
+
+const libcrypto = OpenSSL_jll.libcrypto
+
+function _verify_der_strict(der::Vector{UInt8}; allow_ec=true,
+    allow_rsa=true, allow_ed25519=true)
+    p = Ref{Ptr{UInt8}}(pointer(der))
+    len = Ref{Cint}(length(der))
+    key = ccall((:d2i_PUBKEY, libcrypto), Ptr{Cvoid},
+        (Ptr{Ptr{Cvoid}}, Ptr{Ptr{UInt8}}, Ptr{Cint}),
+        Ref(Ptr{Cvoid}(C_NULL)), p, len)
+
+    if key != C_NULL
+        ccall((:EVP_PKEY_free, libcrypto), Cvoid, (Ptr{Cvoid},), key)
+        return true
+    end
+
+    if allow_rsa
+        p2 = Ref{Ptr{UInt8}}(pointer(der))
+        # (PTR, PTR, Cint)
+        rsa = ccall((:d2i_RSAPublicKey, libcrypto), Ptr{Cvoid},
+            (Ptr{Ptr{Cvoid}}, Ptr{Ptr{UInt8}}, Cint),
+            Ref(Ptr{Cvoid}(C_NULL)), p2, length(der))
+        if rsa != C_NULL
+            ccall((:RSA_free, libcrypto), Cvoid, (Ptr{Cvoid},), rsa)
+            return true
+        end
+    end
+
+    err = ccall((:ERR_get_error, libcrypto), Culong, ())
+    msg = ""
+    if err != 0
+        buf = Vector{UInt8}(undef, 256)
+        ccall((:ERR_error_string_n, libcrypto), Cvoid,
+            (Culong, Ptr{UInt8}, Csize_t),
+            err, pointer(buf), sizeof(buf))
+        msg = unsafe_string(pointer(buf))
+    end
+    throw(ASN1Error("Key parse failed: Not a recognized SPKI or 
+    RSA raw public key; $msg"))
+end
+
 module DER
+
 export DERTree, decode, encode, decode_pem, encode_pem,
     UNIVERSAL, APPLICATION, CONTEXT, PRIVATE,
     TAG_BOOLEAN, TAG_INTEGER, TAG_BIT_STRING, TAG_OCTET_STRING,
     TAG_NULL, TAG_OBJECT_ID, TAG_SEQUENCE, TAG_SET,
     TAG_UTF8_STRING, TAG_PRINTABLE_STRING
+
 using Base64
+
+using ..ASN1
 
 const UNIVERSAL = 0     # 0b00 Universal class
 const APPLICATION = 1   # 0b01 Application class
@@ -51,25 +110,40 @@ DERTree(tag::Int, class::Int, children::Vector{DERTree}) =
     DERTree(tag, class, 0, nothing, children)
 
 const MAX_DER_LENGTH = 10^6
+const MAX_LENGTH_NBYTES = 8
+const MAX_TAG_NBYTES = 5
+const MAX_NESTING_DEPTH = 128
 
 function _parse_length(data::Vector{UInt8}, pos::Int)
+    if pos > length(data)
+        throw(ErrorException("DER parse error: truncated in length byte"))
+    end
     first = data[pos]
     if first & 0x80 == 0
-        len, pos2 = first, pos + 1
+        len, pos2 = Int(first), pos + 1
     else
-        nbytes = first & 0x7F
+        nbytes = Int(first & 0x7F)
         if nbytes == 0
             throw(ErrorException("Indefinite length not allowed"))
         end
-        if data[pos+1] == 0x00 && nbytes > 1
-            throw(ErrorException("DER forbids overlong (non-minimal) 
-            length encoding"))
+        if nbytes > MAX_LENGTH_NBYTES
+            throw(ErrorException("Length field too large ($nbytes bytes)"))
+        end
+        if pos + nbytes > length(data)
+            throw(ErrorException("DER parse error: truncated length bytes"))
+        end
+        if nbytes > 1 && data[pos+1] == 0x00
+            throw(ErrorException(
+                "DER forbids overlong (non-minimal) length encoding"))
         end
         len = 0
+        max_safe = typemax(Int) >> 8
         for i = 1:nbytes
-            len = (len << 8) | data[pos+i]
+            if len > max_safe
+                throw(ErrorException("Length encoding too large"))
+            end
+            len = (len << 8) | Int(data[pos+i])
         end
-        # If the value would fit in nbytes-1, then this is also overlong
         if nbytes > 1 && len < (1 << (8 * (nbytes - 1)))
             throw(ErrorException("DER forbids non-minimal length"))
         end
@@ -81,7 +155,11 @@ function _parse_length(data::Vector{UInt8}, pos::Int)
     return len, pos2
 end
 
-function _decode_one(data::Vector{UInt8}, pos::Int)
+function _decode_one(data::Vector{UInt8}, pos::Int, depth::Int=0)
+    if depth > MAX_NESTING_DEPTH
+        throw(ErrorException("DER parse error: 
+        nesting depth > $MAX_NESTING_DEPTH"))
+    end
     # Bounds check: is header present?
     if pos > length(data)
         throw(ErrorException("DER parse error: truncated in tag byte"))
@@ -93,6 +171,7 @@ function _decode_one(data::Vector{UInt8}, pos::Int)
     tag = tagbyte & 0x1F
     if tag == 0x1F
         tag = 0
+        count_tag_bytes = 0
         while true
             if pos > length(data)
                 throw(ErrorException(
@@ -100,7 +179,15 @@ function _decode_one(data::Vector{UInt8}, pos::Int)
             end
             b = data[pos]
             pos += 1
-            tag = (tag << 7) | (b & 0x7F)
+            count_tag_bytes += 1
+            if count_tag_bytes > MAX_TAG_NBYTES
+                throw(ErrorException("Tag encoding too large"))
+            end
+            # check overflow before shift
+            if tag > (typemax(Int) >> 7)
+                throw(ErrorException("Tag value too large"))
+            end
+            tag = (tag << 7) | (Int(b) & 0x7F)
             if (b & 0x80) == 0
                 break
             end
@@ -119,11 +206,10 @@ function _decode_one(data::Vector{UInt8}, pos::Int)
         pend = pos + len - 1
         children = DERTree[]
         while pos <= pend
-            # Defensive: if pos > pend, break (could also throw!)
             if pos > pend
-                break # should not happen due to top check
+                break
             end
-            child, pos = _decode_one(data, pos)
+            child, pos = _decode_one(data, pos, depth + 1)
             push!(children, child)
         end
         return DERTree(tag, class, len, nothing, children), pend + 1
@@ -134,9 +220,12 @@ function _decode_one(data::Vector{UInt8}, pos::Int)
 end
 
 function decode(data::Vector{UInt8})
-    tree, pos = _decode_one(data, 1)
+    tree, pos = _decode_one(data, 1, 0)
     if pos <= length(data)
         throw(ErrorException("Extra data after root element"))
+    end
+    if ASN1.EXTERNAL_DER_VALIDATION[]
+        ASN1._verify_der_strict(data)
     end
     return tree
 end
@@ -155,10 +244,25 @@ function _encode_length(len::Int)
 end
 
 function _encode_one(node::DERTree)
-    tagbyte = UInt8((node.class << 6) |
-                    (isempty(node.children) ? 0x00 : 0x20) |
-                    (node.tag & 0x1F))
-    out = UInt8[tagbyte]
+    tagnum = node.tag
+    classbits = UInt8((node.class << 6) & 0xC0)
+    constructedbit = isempty(node.children) ? UInt8(0x00) : UInt8(0x20)
+    out = UInt8[]
+    if tagnum < 0x1F
+        push!(out, UInt8(classbits | constructedbit | (UInt8(tagnum & 0x1F))))
+    else
+        push!(out, UInt8(classbits | constructedbit | 0x1F))
+        # encode tagnum in base-128 big-endian groups
+        parts = UInt8[]
+        tmp = tagnum
+        pushfirst!(parts, UInt8(tmp & 0x7F))
+        tmp >>= 7
+        while tmp > 0
+            pushfirst!(parts, UInt8(0x80 | (tmp & 0x7F)))
+            tmp >>= 7
+        end
+        append!(out, parts)
+    end
     if isempty(node.children)
         append!(out, _encode_length(node.length))
         append!(out, node.value)
@@ -173,11 +277,20 @@ function _encode_one(node::DERTree)
     return out
 end
 
-encode(tree::DERTree) = _encode_one(tree)
+function encode(tree::DERTree)
+    bytes = _encode_one(tree)
+    if ASN1.EXTERNAL_DER_VALIDATION[]
+        ASN1._verify_der_strict(bytes)
+    end
+    return bytes
+end
 
 function decode_pem(pem::String)
     body = join(filter(l -> !(startswith(l, "-----") || isempty(strip(l))),
         split(pem, '\n')))
+    if length(body) > 4 * (MAX_DER_LENGTH + 1024)
+        throw(ErrorException("PEM body too large"))
+    end
     return decode(Vector{UInt8}(base64decode(body)))
 end
 
@@ -233,10 +346,13 @@ end
 struct ASN1BitString <: ASN1Primitive
     bits::BitVector
 end
+
 struct ASN1Unknown <: ASN1Primitive
     tag::Int
+    class::Int
     raw::Vector{UInt8}
 end
+
 struct ASN1Sequence <: ASN1Constructed
     elements::Vector{ASN1Value}
 end
@@ -354,10 +470,12 @@ decode_value(::Type{ASN1BitString}, n::DER.DERTree) = begin
 end
 decode_value(::Type{ASN1Sequence}, n::DER.DERTree) =
     ASN1Sequence([der_to_asn1(c) for c in n.children])
+
 decode_value(::Type{ASN1Set}, n::DER.DERTree) =
     ASN1Set([der_to_asn1(c) for c in n.children])
+
 decode_value(::Type{ASN1Unknown}, n::DER.DERTree) =
-    ASN1Unknown(n.tag, n.value === nothing ? UInt8[] : n.value)
+    ASN1Unknown(n.tag, n.class, n.value === nothing ? UInt8[] : n.value)
 
 function asn1_to_der(x::ASN1Value)::DER.DERTree
     encode_value(x)
@@ -446,13 +564,17 @@ encode_value(x::ASN1Sequence) =
     DER.DERTree(DER.TAG_SEQUENCE, DER.UNIVERSAL, [asn1_to_der(e) for e
                                                   in
                                                   x.elements])
-encode_value(x::ASN1Set) = begin
-    encoded = [asn1_to_der(e) for e in x.elements]
-    sorted = sort(encoded, by=DER.encode)
-    DER.DERTree(DER.TAG_SET, DER.UNIVERSAL, sorted)
+
+function encode_value(x::ASN1Set)
+    encoded_pairs = [(DER.encode(asn1_to_der(e)), asn1_to_der(e)) for
+                     e in x.elements]
+    sort!(encoded_pairs, by=p -> p[1])
+    sorted_trees = [p[2] for p in encoded_pairs]
+    return DER.DERTree(DER.TAG_SET, DER.UNIVERSAL, sorted_trees)
 end
+
 encode_value(x::ASN1Unknown) =
-    DER.DERTree(x.tag, DER.UNIVERSAL, x.raw)
+    DER.DERTree(x.tag, x.class, x.raw)
 
 import Base: ==
 ==(a::ASN1Integer, b::ASN1Integer) = a.value == b.value
@@ -466,20 +588,20 @@ import Base: ==
 ==(a::ASN1Sequence, b::ASN1Sequence) = a.elements == b.elements
 ==(a::ASN1Set, b::ASN1Set) = a.elements == b.elements
 ==(a::ASN1Unknown, b::ASN1Unknown) =
-    a.tag == b.tag && a.raw == b.raw
+    a.tag == b.tag && a.class == b.class && a.raw == b.raw
 
 import Base: convert
 
 function convert(::Type{Vector{UInt8}}, bs::ASN1BitString)
     nbits = length(bs.bits)
-    nbytes = ceil(Int, nbits ÷ 8)
+    nbytes = (nbits + 7) ÷ 8   # correct calculation
     out = Vector{UInt8}(undef, nbytes)
     for i in 1:nbytes
         byte::UInt8 = 0
         for j in 0:7
             bit_index = (i - 1) * 8 + (j + 1)
             if bit_index <= nbits && bs.bits[bit_index]
-                byte |= 0x80 >> j   # high‑bit first
+                byte |= 0x80 >> j
             end
         end
         out[i] = byte
