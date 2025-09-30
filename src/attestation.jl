@@ -125,8 +125,10 @@ function verify_attestation_packed(attStmt::Dict, msg::Vector{UInt8},
 
     if haskey(attStmt, "x5c")
         certs = attStmt["x5c"]
-        @assert certs isa AbstractVector && !isempty(certs)
-
+        if !(certs isa AbstractVector) || isempty(certs)
+            throw(ArgumentError(
+                "attStmt[\"x5c\"] must be a non-empty vector of certificates"))
+        end
         cert_der = certs[1]
         pubkey_pem = extract_pubkey_pem_from_der(cert_der)
 

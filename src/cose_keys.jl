@@ -191,7 +191,7 @@ function der_to_pem(derbytes::Vector{UInt8}, label::String="CERTIFICATE")
     b64 = base64encode(derbytes)
     lines = ["-----BEGIN $label-----"]
     for i = 1:64:length(b64)
-        push!(lines, b64[i:min(i+63, end)])
+        push!(lines, b64[i:min(i + 63, end)])
     end
     push!(lines, "-----END $label-----\n")
     join(lines, "\n")
@@ -227,9 +227,9 @@ julia> pem = WebAuthn.extract_pubkey_pem_from_der(der);
 See also: [`cose_key_to_pem`](@ref) and [`der_to_pem`](@ref).
 """
 function extract_pubkey_pem_from_der(der::Vector{UInt8})
-    oid = UInt8[0x06,0x07,0x2A,0x86,0x48,0xCE,0x3D,0x02,0x01]
-    oid_idx = findfirst(i->all(j->der[i+j-1]==oid[j],1:length(oid)), 
-    1:length(der)-length(oid)+1)
+    oid = UInt8[0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x02, 0x01]
+    oid_idx = findfirst(i -> all(j -> der[i+j-1] == oid[j], 1:length(oid)),
+        1:length(der)-length(oid)+1)
     oid_idx === nothing && error("EC OID not found")
     idx = oid_idx + length(oid)
     while idx <= length(der) && der[idx] != 0x03
@@ -251,19 +251,19 @@ function extract_pubkey_pem_from_der(der::Vector{UInt8})
     off += 1
     # Try offsets for robustness
     for trial in 0:9
-        ptry = der[idx+off+trial : min(length(der), idx+off+trial+64)]
+        ptry = der[idx+off+trial:min(length(der), idx + off + trial + 64)]
         if length(ptry) == 65 && ptry[1] == 0x04
             pubkey = ptry
             spki_prefix = UInt8[
-                0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE, 
+                0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE,
                 0x3D, 0x02, 0x01,
-                0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07, 
-                0x03, 0x42, 0x00 ]
+                0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07,
+                0x03, 0x42, 0x00]
             der_pk = vcat(spki_prefix, pubkey)
             b64 = base64encode(der_pk)
             lines = ["-----BEGIN PUBLIC KEY-----"]
             for i = 1:64:length(b64)
-                push!(lines, b64[i:min(i+63, end)])
+                push!(lines, b64[i:min(i + 63, end)])
             end
             push!(lines, "-----END PUBLIC KEY-----\n")
             return join(lines, "\n")
@@ -345,23 +345,38 @@ See also: [`pem_to_der`](@ref),
 [`parse_rsa_pem_ne`](@ref) and [`parse_ed25519_pem_x`](@ref).
 """
 function parse_ec_pem_xy(pem::AbstractString)
-    der  = pem_to_der(pem)
+    der = pem_to_der(pem)
     spki = ASN1.der_to_asn1(ASN1.DER.decode(der))
-    @assert spki isa ASN1Sequence
+    if !(spki isa ASN1Sequence)
+        throw(ArgumentError(
+            "DER is not an ASN1Sequence (got $(typeof(spki)))"))
+    end
+
+    if length(spki.elements) < 2
+        throw(ArgumentError(
+            "SubjectPublicKeyInfo missing elements"))
+    end
 
     _, bitstr = spki.elements
-    @assert bitstr isa ASN1BitString
+    if !(bitstr isa ASN1BitString)
+        throw(ArgumentError(
+            "SubjectPublicKeyInfo does not contain ASN1BitString"))
+    end
 
     rawbytes = convert(Vector{UInt8}, bitstr)
 
-    @assert rawbytes[1] == 0x04 "Only uncompressed EC points supported"
-    @assert length(rawbytes) == 65 "Expected 65-byte EC point"
-
+    if length(rawbytes) < 1 || rawbytes[1] != 0x04
+        throw(ArgumentError(
+            "Only uncompressed EC points supported (expected 0x04 prefix)"))
+    end
+    if length(rawbytes) != 65
+        throw(ArgumentError(
+            "Expected 65-byte EC point, got $(length(rawbytes)) bytes"))
+    end
     x = rawbytes[2:33]
     y = rawbytes[34:65]
     return x, y
 end
-
 """
     parse_rsa_pem_ne(pem::AbstractString)
 
@@ -398,7 +413,7 @@ true
 See also: [`pem_to_der`](@ref) and [`parse_ec_pem_xy`](@ref).
 """
 function parse_rsa_pem_ne(pem::AbstractString)
-    der  = pem_to_der(pem)
+    der = pem_to_der(pem)
     spki = ASN1.der_to_asn1(ASN1.DER.decode(der))
     _, bitstr = spki.elements
 
@@ -408,7 +423,8 @@ function parse_rsa_pem_ne(pem::AbstractString)
 
     # Convert BigInt to big‑endian bytes
     bigint_to_bytes(b::BigInt) = begin
-        v = b; v < 0 && error("Negative modulus/exponent not allowed")
+        v = b
+        v < 0 && error("Negative modulus/exponent not allowed")
         out = UInt8[]
         while v > 0
             pushfirst!(out, UInt8(v & 0xff))
@@ -448,10 +464,16 @@ julia> length(x)
 See also: [`pem_to_der`](@ref) and [`parse_ec_pem_xy`](@ref).
 """
 function parse_ed25519_pem_x(pem::AbstractString)
-    der  = pem_to_der(pem)
+    der = pem_to_der(pem)
     spki = ASN1.der_to_asn1(ASN1.DER.decode(der))
+    if length(spki.elements) < 2
+        throw(ArgumentError("Ed25519 key ASN.1 structure missing elements"))
+    end
     _, bitstr = spki.elements
     rawbytes = convert(Vector{UInt8}, bitstr)
-    @assert length(rawbytes) == 32
+    if length(rawbytes) != 32
+        throw(ArgumentError(
+            "Expected 32-byte Ed25519 key, got $(length(rawbytes)) bytes"))
+    end
     return rawbytes
 end

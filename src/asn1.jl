@@ -193,6 +193,10 @@ function _decode_one(data::Vector{UInt8}, pos::Int, depth::Int=0)
             end
         end
     end
+    if isconst && (tag == TAG_BIT_STRING || tag == TAG_OCTET_STRING)
+        throw(ErrorException(
+            "Constructed form forbidden for BIT/OCTET STRING in DER"))
+    end
 
     # Bounds check: is there enough left for the length field (and value)?
     len, pos = _parse_length(data, pos)
@@ -286,8 +290,11 @@ function encode(tree::DERTree)
 end
 
 function decode_pem(pem::String)
-    body = join(filter(l -> !(startswith(l, "-----") || isempty(strip(l))),
-        split(pem, '\n')))
+    m = match(r"-----BEGIN ([A-Z ]+)-----(.*?)-----END ([A-Z ]+)-----"ms, pem)
+    if m === nothing || m.captures[1] != m.captures[3]
+        throw(ErrorException("PEM label mismatch"))
+    end
+    body = replace(m.captures[2], r"\s+" => "")
     if length(body) > 4 * (MAX_DER_LENGTH + 1024)
         throw(ErrorException("PEM body too large"))
     end
@@ -377,7 +384,22 @@ function der_to_asn1(node::DER.DERTree)
     decode_value(typ, node)
 end
 
-decode_integer(bytes::Vector{UInt8}) = begin
+function decode_integer(bytes::Vector{UInt8})
+    if isempty(bytes)
+        throw(ASN1Error("Empty INTEGER"))
+    end
+    # Zero must be [0x00]
+    if all(x->x==0x00, bytes) && length(bytes) > 1
+        throw(ASN1Error("INTEGER zero must be [0x00] only"))
+    end
+    # Positive: first byte 0x00 only if 2nd has high bit
+    if (bytes[1] == 0x00) && (length(bytes) > 1) && (bytes[2] & 0x80 == 0)
+        throw(ASN1Error("INTEGER non-minimal DER encoding: redundant 0x00"))
+    end
+    # Negative: first byte 0xFF only if 2nd has high bit set
+    if (bytes[1] == 0xFF) && (length(bytes) > 1) && (bytes[2] & 0x80 == 0x80)
+        throw(ASN1Error("INTEGER non-minimal DER encoding: redundant 0xFF"))
+    end
     n = BigInt(0)
     for b in bytes
         n = (n << 8) | b
