@@ -11,7 +11,7 @@ It provides end-to-end functions for registration and login, CBOR/COSE key parsi
 
 ---
 
-**Warning: The package is currently not production ready and needs review.***
+**Warning: The package is currently not production ready and needs review.**
 
 ## Features
 
@@ -52,7 +52,7 @@ A passkey (credential) is generated and stored securely on the user device; **pr
 ![](docs/src/assets/webauthn_registration.svg)
 
 1. **Server generates options:**  
-   [`registration_options`] — builds challenge and metadata for browser.
+   `registration_options` — builds challenge and metadata for browser.
 
 2. **Client creates credential:**  
    Browser and authenticator generate a new passkey on the device.
@@ -61,10 +61,10 @@ A passkey (credential) is generated and stored securely on the user device; **pr
    Browser returns `attestationObject` and `clientDataJSON` to your server.
 
 4. **Server verifies registration:**  
-   - Parse: [`parse_attestation_object`], [`parse_clientdata_json`]
-   - Check challenge: [`verify_challenge`]
-   - Extract public key: [`extract_credential_public_key`], [`cose_key_parse`]
-   - (Optional) Validate attestation: [`verify_attestation_object`]  
+   - Parse: `parse_attestation_object`, `parse_clientdata_json`
+   - Check challenge: `verify_challenge`
+   - Extract public key: `extract_credential_public_key`, `cose_key_parse`
+   - (Optional) Validate attestation: `verify_attestation_object`  
    - Store credential ID & public key for future logins.
 
 ---
@@ -74,7 +74,7 @@ A passkey (credential) is generated and stored securely on the user device; **pr
 ![](docs/src/assets/webauthn_authentication.svg)
 
 1. **Server generates assertion options:**  
-   [`authentication_options`]
+   `authentication_options`
 
 2. **Client signs with passkey:**  
    Browser prompts user; authenticator signs challenge.
@@ -83,9 +83,9 @@ A passkey (credential) is generated and stored securely on the user device; **pr
    Server receives: authenticator data, clientDataJSON, signature.
 
 4. **Server verifies signature:**  
-   - Parse: [`parse_assertion`], [`parse_clientdata_json`]
-   - Verify challenge: [`verify_challenge`]
-   - Signature check: [`verify_webauthn_signature`]  
+   - Parse: `parse_assertion`, `parse_clientdata_json`
+   - Verify challenge: `verify_challenge`
+   - Signature check: `verify_webauthn_signature`  
    - (Optional) Enforce signCount, user presence, user verification
 
 ---
@@ -94,12 +94,12 @@ A passkey (credential) is generated and stored securely on the user device; **pr
 
 | Phase          | Step              | WebAuthn.jl Functions                                                    |
 |----------------|-------------------|--------------------------------------------------------------------------|
-| Registration   | Build options     | [`registration_options`]                                           |
-|                | Parse & verify    | [`parse_attestation_object`], [`parse_clientdata_json`],[`verify_challenge`], [`extract_credential_public_key`], [`cose_key_parse`], [`verify_attestation_object`] |
-| Authentication | Build options     | [`authentication_options`]                                         |
-|                | Parse & verify    | [`parse_assertion`], [`parse_clientdata_json`], [`verify_challenge`], [`verify_webauthn_signature`]                         |
+| Registration   | Build options     | `registration_options`                                           |
+|                | Parse & verify    | `parse_attestation_object`, `parse_clientdata_json`,`verify_challenge`, `extract_credential_public_key`, `cose_key_parse`, `verify_attestation_object` |
+| Authentication | Build options     | `authentication_options`                                         |
+|                | Parse & verify    | `parse_assertion`, `parse_clientdata_json`, `verify_challenge`, `verify_webauthn_signature`                         |
 
-_See also:_ [`cose_key_to_pem`] for PEM export/interoperation.
+_See also:_ `cose_key_to_pem` for PEM export/interoperation.
 
 ---
 
