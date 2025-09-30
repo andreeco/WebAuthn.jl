@@ -67,7 +67,8 @@ Avoid this too?
 function verify_webauthn_signature(pubkey_pem::AbstractString,
     ad::Vector{UInt8}, cdj::Vector{UInt8}, sig::Vector{UInt8})::Bool
 
-    # Compute the exact message per WebAuthn: authenticatorData || SHA256(clientDataJSON)
+    # Compute the exact message per WebAuthn: 
+    # authenticatorData || SHA256(clientDataJSON)
     msg_hash = SHA.sha256(vcat(ad, SHA.sha256(cdj)))
 
     # 1) Try EC2 (ES256)
@@ -90,10 +91,12 @@ function verify_webauthn_signature(pubkey_pem::AbstractString,
     # 3) Try Ed25519 (OKP)
     try
         x = parse_ed25519_pem_x(pubkey_pem)
-        # Sodium expects raw message for EdDSA, but WebAuthn signs authenticatorData || SHA256(cdj)
+        # Sodium expects raw message for EdDSA, but WebAuthn signs 
+        # authenticatorData || SHA256(cdj)
         # However for Ed25519 we sign the raw message, not its hash
         full_msg = vcat(ad, SHA.sha256(cdj))
-        return Sodium.crypto_sign_verify_detached(sig, full_msg, length(full_msg), x) == 0
+        return Sodium.crypto_sign_verify_detached(
+            sig, full_msg, length(full_msg), x) == 0
     catch
         # nothing left
     end

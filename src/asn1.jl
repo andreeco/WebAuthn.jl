@@ -5,8 +5,6 @@ and I must check it myself too (more).
 
 module ASN1
 
-using OpenSSL_jll
-
 """
     EXTERNAL_DER_VALIDATION
 
@@ -26,47 +24,74 @@ export ASN1Value, ASN1Integer, ASN1Boolean, ASN1String, ASN1OID,
 
 using Base64
 
-#_verify_der_strict(data) = true
+module DERFirewall
 
+using OpenSSL_jll
 const libcrypto = OpenSSL_jll.libcrypto
 
-function _verify_der_strict(der::Vector{UInt8}; allow_ec=true,
-    allow_rsa=true, allow_ed25519=true)
+function parse_evp_pkey(der::Vector{UInt8})
     p = Ref{Ptr{UInt8}}(pointer(der))
     len = Ref{Cint}(length(der))
     key = ccall((:d2i_PUBKEY, libcrypto), Ptr{Cvoid},
         (Ptr{Ptr{Cvoid}}, Ptr{Ptr{UInt8}}, Ptr{Cint}),
         Ref(Ptr{Cvoid}(C_NULL)), p, len)
+    return key
+end
 
+function parse_rsa_publickey(der::Vector{UInt8})
+    p = Ref{Ptr{UInt8}}(pointer(der))
+    key = ccall((:d2i_RSAPublicKey, libcrypto), Ptr{Cvoid},
+        (Ptr{Ptr{Cvoid}}, Ptr{Ptr{UInt8}}, Cint),
+        Ref(Ptr{Cvoid}(C_NULL)), p, length(der))
+    return key
+end
+
+function openssl_get_error_msg()
+    err = ccall((:ERR_get_error, libcrypto), Culong, ())
+    if err == 0
+        return ""
+    end
+    buf = Vector{UInt8}(undef, 256)
+    ccall((:ERR_error_string_n, libcrypto), Cvoid,
+        (Culong, Ptr{UInt8}, Csize_t),
+        err, pointer(buf), sizeof(buf))
+    return unsafe_string(pointer(buf))
+end
+
+function _verify_der_strict(der::Vector{UInt8}; allow_ec=true,
+    allow_rsa=true, allow_ed25519=true)
+    # Only checks if DER parses as any key; type is NOT enforced
+    # due to missing EVP_PKEY_id in OpenSSL_jll.
+    key = parse_evp_pkey(der)
     if key != C_NULL
         ccall((:EVP_PKEY_free, libcrypto), Cvoid, (Ptr{Cvoid},), key)
         return true
     end
+    # Strict key type filtering
+    # ktype = ccall((:EVP_PKEY_id, libcrypto), Cint, (Ptr{Cvoid},), key)
+    # if (ktype == 408 && allow_ec) || 
+    # (ktype == 6 && allow_rsa) || 
+    # (ktype == 1087 && allow_ed25519)
+    #     return true
+    # else
+    #    throw(ErrorException("Key type not allowed: $ktype"))
+    # end
 
     if allow_rsa
-        p2 = Ref{Ptr{UInt8}}(pointer(der))
-        # (PTR, PTR, Cint)
-        rsa = ccall((:d2i_RSAPublicKey, libcrypto), Ptr{Cvoid},
-            (Ptr{Ptr{Cvoid}}, Ptr{Ptr{UInt8}}, Cint),
-            Ref(Ptr{Cvoid}(C_NULL)), p2, length(der))
+        rsa = parse_rsa_publickey(der)
         if rsa != C_NULL
             ccall((:RSA_free, libcrypto), Cvoid, (Ptr{Cvoid},), rsa)
             return true
         end
     end
-
-    err = ccall((:ERR_get_error, libcrypto), Culong, ())
-    msg = ""
-    if err != 0
-        buf = Vector{UInt8}(undef, 256)
-        ccall((:ERR_error_string_n, libcrypto), Cvoid,
-            (Culong, Ptr{UInt8}, Csize_t),
-            err, pointer(buf), sizeof(buf))
-        msg = unsafe_string(pointer(buf))
-    end
-    throw(ASN1Error("Key parse failed: Not a recognized SPKI or 
+    msg = openssl_get_error_msg()
+    throw(ErrorException("Key parse failed: Not a recognized SPKI or 
     RSA raw public key; $msg"))
 end
+
+end # module
+
+using .DERFirewall
 
 module DER
 
@@ -229,7 +254,7 @@ function decode(data::Vector{UInt8})
         throw(ErrorException("Extra data after root element"))
     end
     if ASN1.EXTERNAL_DER_VALIDATION[]
-        ASN1._verify_der_strict(data)
+        ASN1.DERFirewall._verify_der_strict(data)
     end
     return tree
 end
@@ -284,7 +309,7 @@ end
 function encode(tree::DERTree)
     bytes = _encode_one(tree)
     if ASN1.EXTERNAL_DER_VALIDATION[]
-        ASN1._verify_der_strict(bytes)
+        ASN1.DERFirewall._verify_der_strict(bytes)
     end
     return bytes
 end
@@ -389,7 +414,7 @@ function decode_integer(bytes::Vector{UInt8})
         throw(ASN1Error("Empty INTEGER"))
     end
     # Zero must be [0x00]
-    if all(x->x==0x00, bytes) && length(bytes) > 1
+    if all(x -> x == 0x00, bytes) && length(bytes) > 1
         throw(ASN1Error("INTEGER zero must be [0x00] only"))
     end
     # Positive: first byte 0x00 only if 2nd has high bit
