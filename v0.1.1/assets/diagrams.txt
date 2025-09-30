@@ -1,0 +1,29 @@
+### Registration Workflow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Browser
+    participant Authenticator
+    participant Server
+    Server->>Browser: Build options (`registration_options`)
+    Browser->>Authenticator: navigator.credentials.create(...)
+    Authenticator-->>Browser: attestationObject, clientDataJSON
+    Browser->>Server: submits these responses
+    Server->>Server: verify using WebAuthn.jl
+```
+
+### Authentication Workflow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Browser
+    participant Authenticator
+    participant Server
+    Server->>Browser: Build options (`authentication_options`)
+    Browser->>Authenticator: navigator.credentials.get(...)
+    Authenticator-->>Browser: assertion data
+    Browser->>Server: submits response
+    Server->>Server: verify signature etc.
+```
