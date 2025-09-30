@@ -17,6 +17,7 @@ module WebAuthn
 
 using Base64, Random, CBOR, JSON3, SHA, OpenSSL_jll, Dates, UUIDs, Sodium
 
+include("asn1.jl")
 include("base64url.jl")
 include("challenge.jl")
 include("cose_keys.jl")

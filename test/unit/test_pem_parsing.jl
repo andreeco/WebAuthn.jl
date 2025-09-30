@@ -1,46 +1,6 @@
 # test_cose_keys_native_pem.jl
 using Test, WebAuthn
 
-@testset "asn1_parse_length short/long form" begin
-    # Short-form
-    b = UInt8[0x02, 0x01, 0x41]
-    len, off = WebAuthn.asn1_parse_length(b, 2)
-    @test len == 1
-    @test off == 3
-
-    # Long-form: 2-byte
-    b2 = UInt8[0x02, 0x82, 0x01, 0x00]
-    len, off = WebAuthn.asn1_parse_length(b2, 2)
-    @test len == 256
-    @test off == 5
-
-    # Long-form: 3-byte
-    b3 = UInt8[0x02, 0x83, 0x01, 0x01, 0x01]
-    len, off = WebAuthn.asn1_parse_length(b3, 2)
-    @test len == 0x010101
-    @test off == 6
-
-    # Error: Run out of bytes
-    b4 = UInt8[0x02, 0x83, 0x01]
-    @test_throws BoundsError WebAuthn.asn1_parse_length(b4, 2)
-end
-
-@testset "find_bitstring utility" begin
-    # EC-style: Bit string, unused bits=0, 0x04 prefix, len=66
-    der = vcat(UInt8[0x03, 0x42, 0x00, 0x04], rand(UInt8, 65))
-    idx, bitlen, unusedbits, content_off = WebAuthn.find_bitstring(der;
-        require_uncompressed=true, required_len=66)
-    @test idx == 1
-    @test bitlen == 0x42
-    @test unusedbits == 0x00
-    @test der[content_off] == 0x04
-
-    # No suitable bit string
-    bad_der = UInt8[0x03, 0x42, 0x00, 0x05]  # not uncompressed (0x04)
-    @test_throws ErrorException WebAuthn.find_bitstring(bad_der;
-        require_uncompressed=true, required_len=66)
-end
-
 @testset "pem_to_der utility" begin
     # Good PEM
     pem = "-----BEGIN PUBLIC KEY-----\nQUJDRA==\n-----END PUBLIC KEY-----"

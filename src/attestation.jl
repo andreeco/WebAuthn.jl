@@ -119,28 +119,35 @@ function verify_attestation_packed(attStmt::Dict, msg::Vector{UInt8},
     sig = Vector{UInt8}(attStmt["sig"])
     cose_alg = Int(attStmt["alg"])
 
-    # Accept only the algorithms you implement
     if !(cose_alg in (-7, -257, -8))
         error("Unsupported packed alg $cose_alg")
     end
+
     if haskey(attStmt, "x5c")
-        certs = attStmt["x5c"]::Vector{Vector{UInt8}}
-        pubkey = extract_pubkey_from_der_raw(certs[1])
-        if pubkey isa EC2PublicKey
-            # FIX: HASH MSG!
-            return verify_p256_signature_raw_xy(pubkey.x, pubkey.y,
-                SHA.sha256(msg), sig)
-        elseif pubkey isa RSAPublicKey
-            return verify_rsa_signature_raw_ne(pubkey.n, pubkey.e,
-                SHA.sha256(msg), sig)
+        certs = attStmt["x5c"]
+        @assert certs isa AbstractVector && !isempty(certs)
+
+        cert_der = certs[1]
+        pubkey_pem = extract_pubkey_pem_from_der(cert_der)
+
+        if cose_alg == -7   # P-256
+            x, y = parse_ec_pem_xy(pubkey_pem)
+            return verify_p256_signature_raw_xy(x, y, SHA.sha256(msg), sig)
+        elseif cose_alg == -257  # RSA
+            n, e = parse_rsa_pem_ne(pubkey_pem)
+            return verify_rsa_signature_raw_ne(n, e, SHA.sha256(msg), sig)
+        elseif cose_alg == -8    # Ed25519
+            x = parse_ed25519_pem_x(pubkey_pem)
+            return Sodium.crypto_sign_verify_detached(
+                sig, msg, length(msg), x) == 0
         else
-            error("Unsupported public key type from attestation cert")
+            error("Unsupported algorithm in packed/x5c: $cose_alg")
         end
     else
         credpub = parse_credential_public_key(authData)
         msub = msg[length(authData)+1:end]
+
         if credpub isa EC2PublicKey
-            # FIX: HASH msub!
             return verify_p256_signature_raw_xy(credpub.x, credpub.y,
                 SHA.sha256(msub), sig)
         elseif credpub isa RSAPublicKey
@@ -148,10 +155,11 @@ function verify_attestation_packed(attStmt::Dict, msg::Vector{UInt8},
                 SHA.sha256(msub), sig)
         elseif credpub isa OKPPublicKey
             return Sodium.crypto_sign_verify_detached(sig, msub,
-                length(msub), credpub.x) == 0
+                length(msub),
+                credpub.x) == 0
         else
-            error("Self-attestation only supported for EC2/RSA/OKP,
-                got $(typeof(credpub))")
+            error("Self-attestation only supported for EC2/RSA/OKP, got $(
+            typeof(credpub))")
         end
     end
 end

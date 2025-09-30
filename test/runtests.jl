@@ -1,4 +1,4 @@
-using Test, WebAuthn, CBOR, Dates, JSON3, SHA, Sodium, Logging
+using Test, WebAuthn, CBOR, Dates, JSON3, SHA, Sodium, Logging, Base64
 
 function include_all_jl(dir)
     for f in readdir(dir; join=true)

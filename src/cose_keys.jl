@@ -1,6 +1,8 @@
 export EC2PublicKey, RSAPublicKey, OKPPublicKey, WebAuthnPublicKey
 export cose_key_parse, cose_key_to_pem
 
+using WebAuthn.ASN1
+
 """
     abstract type WebAuthnPublicKey
 
@@ -277,101 +279,7 @@ function extract_pubkey_from_der_raw(der::Vector{UInt8})
     WebAuthn.EC2PublicKey(x, y, -7, 1)
 end
 
-
-
 export pem_to_der, parse_ec_pem_xy, parse_rsa_pem_ne, parse_ed25519_pem_x
-
-
-
-# === Minimal PEM decoders (pure Julia, for signature verification) ===
-
-"""
-    asn1_parse_length(der::Vector{UInt8}, offset::Int)
-
-Parse an ASN.1 DER length at the given `offset`and return `(len, newoffset)`.
-
-Handles both short-form (one-byte) and long-form (multi-byte) DER lengths as 
-per X.690. The returned `newoffset` points to the first byte after the length 
-field.
-
-## Examples
-
-```jldoctest
-julia> using WebAuthn
-
-julia> der = UInt8[0x02, 0x01, 0x41, 0x04, 0x82, 0x01, 0x00, 0x00];
-
-julia> WebAuthn.asn1_parse_length(der, 2)
-(0x01, 3)
-
-julia> WebAuthn.asn1_parse_length([0x02, 0x82, 0x01, 0x00], 2)
-(256, 5)
-```
-"""
-function asn1_parse_length(der::Vector{UInt8}, offset::Int)
-    lenbyte = der[offset]
-    offset += 1
-    if lenbyte < 0x80
-        return lenbyte, offset
-    else
-        nlen = lenbyte & 0x7f
-        bitlen = 0
-        for _ in 1:nlen
-            bitlen = (bitlen << 8) | der[offset]
-            offset += 1
-        end
-        return bitlen, offset
-    end
-end
-
-"""
-    find_bitstring(der::Vector{UInt8}; require_uncompressed=false, 
-         required_len=0) 
-
-Scan the byte array `der` for ASN.1 BIT STRINGs.
-
-Returns a tuple `(tagidx, bitlen, unusedbits, content_offset)` for the first 
-BIT STRING TAG (0x03) that matches the requirements.
-
-- If `require_uncompressed=true`, only returns BIT STRINGs whose 
-    *first data byte* is `0x04`
-  (typical for EC public keys in uncompressed format).
-- If `required_len > 0`, the BIT STRING must be exactly `required_len` bytes.
-
-Raises an error if no matching BIT STRING is found.
-
-## Examples
-
-```jldoctest
-julia> using WebAuthn
-
-julia> der = vcat(UInt8[0x03, 0x42, 0x00, 0x04], rand(UInt8, 65));
-
-julia> idx, bitlen, unusedbits, content_off = WebAuthn.find_bitstring(
-           der; require_uncompressed=true, required_len=66)
-(1, 0x42, 0x00, 4)
-```
-"""
-function find_bitstring(der::Vector{UInt8}; require_uncompressed=false, 
-    required_len=0)
-    bitstr_idxs = findall(==(0x03), der)
-    for idx in bitstr_idxs
-        len, off = asn1_parse_length(der, idx+1)
-        unusedbits = der[off]
-        content_off = off + 1
-        ok = true
-        if require_uncompressed
-            ok &= der[content_off] == 0x04
-        end
-        if required_len > 0
-            ok &= len == required_len
-        end
-        if ok
-            return idx, len, unusedbits, content_off
-        end
-    end
-    error("No matching BIT STRING in DER")
-end
 
 """
     pem_to_der(pem::AbstractString)::Vector{UInt8}
@@ -437,12 +345,20 @@ See also: [`pem_to_der`](@ref), [`asn1_parse_length`](@ref),
 [`parse_rsa_pem_ne`](@ref) and [`parse_ed25519_pem_x`](@ref).
 """
 function parse_ec_pem_xy(pem::AbstractString)
-    der = WebAuthn.pem_to_der(pem)
-    idx, len, unusedbits, off = find_bitstring(der; require_uncompressed=true, 
-    required_len=66)
-    unusedbits == 0 || error("Expected unused bits=0 after BIT STRING")
-    x = der[off+1 : off+32]
-    y = der[off+33 : off+64]
+    der  = pem_to_der(pem)
+    spki = ASN1.der_to_asn1(ASN1.DER.decode(der))
+    @assert spki isa ASN1Sequence
+
+    _, bitstr = spki.elements
+    @assert bitstr isa ASN1BitString
+
+    rawbytes = convert(Vector{UInt8}, bitstr)
+
+    @assert rawbytes[1] == 0x04 "Only uncompressed EC points supported"
+    @assert length(rawbytes) == 65 "Expected 65-byte EC point"
+
+    x = rawbytes[2:33]
+    y = rawbytes[34:65]
     return x, y
 end
 
@@ -483,30 +399,26 @@ See also: [`pem_to_der`](@ref), [`asn1_parse_length`](@ref) and
 [`parse_ec_pem_xy`](@ref).
 """
 function parse_rsa_pem_ne(pem::AbstractString)
-    der = pem_to_der(pem)
-    # Find the BIT STRING, skip its length, unused bits=0
-    bitstr_idx = findfirst(==(0x03), der)
-    @assert bitstr_idx !== nothing "No BIT STRING tag (0x03) in DER!"
-    len, off = asn1_parse_length(der, bitstr_idx+1)
-    der[off] == 0x00 || error("Expected unused bits=0 after BIT STRING")
-    off += 1
+    der  = pem_to_der(pem)
+    spki = ASN1.der_to_asn1(ASN1.DER.decode(der))
+    _, bitstr = spki.elements
 
-    # Now at SEQUENCE
-    der[off] == 0x30 || error("Expected SEQUENCE after BIT STRING")
-    seq_len, off2 = asn1_parse_length(der, off+1)
-    off = off2
+    inner_bytes = convert(Vector{UInt8}, bitstr)
+    inner = ASN1.der_to_asn1(ASN1.DER.decode(inner_bytes))
+    n_asn1, e_asn1 = inner.elements
 
-    # INTEGER (modulus n)
-    der[off] == 0x02 || error("Expected INTEGER tag for n in inner SEQUENCE")
-    n_len, n_start = asn1_parse_length(der, off+1)
-    nbytes_ = der[n_start : n_start + n_len - 1]
-    off = n_start + n_len
-
-    # INTEGER (exponent e)
-    der[off] == 0x02 || error("Expected INTEGER tag for e in inner SEQUENCE")
-    e_len, e_start = asn1_parse_length(der, off+1)
-    ebytes_ = der[e_start : e_start + e_len - 1]
-    return nbytes_, ebytes_
+    # Convert BigInt to big‑endian bytes
+    bigint_to_bytes(b::BigInt) = begin
+        v = b; v < 0 && error("Negative modulus/exponent not allowed")
+        out = UInt8[]
+        while v > 0
+            pushfirst!(out, UInt8(v & 0xff))
+            v >>= 8
+        end
+        isempty(out) && push!(out, 0x00)
+        out
+    end
+    return bigint_to_bytes(n_asn1.value), bigint_to_bytes(e_asn1.value)
 end
 
 """
@@ -538,21 +450,10 @@ See also: [`pem_to_der`](@ref), [`asn1_parse_length`](@ref) and
 [`parse_ec_pem_xy`](@ref).
 """
 function parse_ed25519_pem_x(pem::AbstractString)
-    der = pem_to_der(pem)
-    bitstr_idxs = findall(==(0x03), der)
-    for i in bitstr_idxs
-        len, off = asn1_parse_length(der, i+1)
-        unusedbits = der[off]
-        if unusedbits == 0 && len in (32, 33)
-            content_off = off + 1
-            if len == 33 && der[content_off] == 0x00  # Some encoders
-                content_off += 1
-            end
-            if content_off + 31 <= length(der)
-                x = der[content_off:content_off+31]
-                return x
-            end
-        end
-    end
-    error("Ed25519 public key BIT STRING not found in DER")
+    der  = pem_to_der(pem)
+    spki = ASN1.der_to_asn1(ASN1.DER.decode(der))
+    _, bitstr = spki.elements
+    rawbytes = convert(Vector{UInt8}, bitstr)
+    @assert length(rawbytes) == 32
+    return rawbytes
 end

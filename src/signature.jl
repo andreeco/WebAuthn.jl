@@ -100,6 +100,9 @@ function verify_webauthn_signature(pubkey_pem::AbstractString,
 
     return false
 end
+
+
+
 #=
 # Dont go for this!!
 function verify_webauthn_signature(pubkey_pem::AbstractString,
