@@ -4,6 +4,8 @@ and I must check it myself too (more).
 """
 module ASN1
 
+@warn "ASN1 is experimental and libasn1_jll might be a more secure alternative!"
+
 export ASN1Value, ASN1Integer, ASN1Boolean, ASN1String, ASN1OID,
     ASN1Null, ASN1OctetString, ASN1BitString, ASN1Unknown,
     ASN1Sequence, ASN1Set, ASN1Error, der_to_asn1, asn1_to_der
@@ -269,7 +271,7 @@ decode_integer(bytes::Vector{UInt8}) = begin
     n
 end
 
-decode_oid(bytes::Vector{UInt8}) = begin
+_decode_oid(bytes::Vector{UInt8}) = begin
     if isempty(bytes)
         return Int[]
     end
@@ -318,7 +320,7 @@ decode_value(::Type{ASN1String}, n::DER.DERTree) = begin
     end
     ASN1String(s, kind)
 end
-decode_value(::Type{ASN1OID}, n::DER.DERTree) = ASN1OID(decode_oid(n.value))
+decode_value(::Type{ASN1OID}, n::DER.DERTree) = ASN1OID(_decode_oid(n.value))
 decode_value(::Type{ASN1Null}, ::DER.DERTree) = ASN1Null()
 decode_value(::Type{ASN1OctetString}, n::DER.DERTree) =
     ASN1OctetString(n.value)
