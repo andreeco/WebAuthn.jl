@@ -341,7 +341,7 @@ julia> x, y = parse_ec_pem_xy(pem);
 julia> length(x), length(y)
 (32, 32)
 ```
-See also: [`pem_to_der`](@ref), [`asn1_parse_length`](@ref), 
+See also: [`pem_to_der`](@ref),
 [`parse_rsa_pem_ne`](@ref) and [`parse_ed25519_pem_x`](@ref).
 """
 function parse_ec_pem_xy(pem::AbstractString)
@@ -395,8 +395,7 @@ julia> n, e = parse_rsa_pem_ne(pem);
 julia> length(n) > 200 && e == UInt8[0x01, 0x00, 0x01]
 true
 ```
-See also: [`pem_to_der`](@ref), [`asn1_parse_length`](@ref) and
-[`parse_ec_pem_xy`](@ref).
+See also: [`pem_to_der`](@ref) and [`parse_ec_pem_xy`](@ref).
 """
 function parse_rsa_pem_ne(pem::AbstractString)
     der  = pem_to_der(pem)
@@ -446,8 +445,7 @@ julia> x = parse_ed25519_pem_x(pem);
 julia> length(x)
 32
 ```
-See also: [`pem_to_der`](@ref), [`asn1_parse_length`](@ref) and 
-[`parse_ec_pem_xy`](@ref).
+See also: [`pem_to_der`](@ref) and [`parse_ec_pem_xy`](@ref).
 """
 function parse_ed25519_pem_x(pem::AbstractString)
     der  = pem_to_der(pem)
