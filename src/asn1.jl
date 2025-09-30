@@ -16,7 +16,7 @@ structure.
 
 Disabling this is insecure!
 """
-const EXTERNAL_DER_VALIDATION = Ref(false)
+const EXTERNAL_DER_VALIDATION = Ref(true)
 
 @warn "ASN1 is experimental!"
 
