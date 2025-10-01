@@ -73,7 +73,7 @@ function openssl_get_error_msg()
     return isempty(msgs) ? "" : join(msgs, "; ")
 end
 
-function _verify_der_strict(der::Vector{UInt8}; allow_ec=true, 
+function _verify_der_strict(der::Vector{UInt8}; allow_ec=true,
     allow_rsa=true, allow_ed25519=true)
     # Clear OpenSSL error queue before parsing
     ccall((:ERR_clear_error, libcrypto), Cvoid, ())
@@ -268,12 +268,12 @@ function _decode_one(data::Vector{UInt8}, pos::Int, depth::Int=0)
 end
 
 function decode(data::Vector{UInt8})
+    if AbstractSyntaxNotationOne.EXTERNAL_DER_VALIDATION[]
+        AbstractSyntaxNotationOne.DERFirewall._verify_der_strict(data)
+    end
     tree, pos = _decode_one(data, 1, 0)
     if pos <= length(data)
         throw(ErrorException("Extra data after root element"))
-    end
-    if AbstractSyntaxNotationOne.EXTERNAL_DER_VALIDATION[]
-        AbstractSyntaxNotationOne.DERFirewall._verify_der_strict(data)
     end
     return tree
 end
