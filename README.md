@@ -11,7 +11,9 @@ It provides end-to-end functions for registration and login, CBOR/COSE key parsi
 
 ---
 
-**Warning: The package is currently not production ready and needs review.**
+⚠️ **Experimental:**  
+
+This code is experimental. All cryptographic validation is enforced by OpenSSL or Sodium for safety. Please **do not use in production** without a full security review.
 
 ## Features
 

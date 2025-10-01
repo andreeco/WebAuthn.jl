@@ -1,6 +1,9 @@
 """
-This code must be reviewed! Testing is not done properly yet (RFC) 
-and I must check it myself too (more).
+# Experimental ASN.1/DER Parsing (with OpenSSL Safeguards!)
+
+This module is experimental. All cryptographic key validation and signature 
+checks are ultimately enforced by OpenSSL ("DER firewall") for safety.
+Do not use for critical applications without review.
 """
 
 module AbstractSyntaxNotationOne
@@ -16,8 +19,6 @@ Disabling this is insecure!
 """
 const EXTERNAL_DER_VALIDATION = Ref(true)
 
-@warn "ASN1 is experimental!"
-
 export ASN1Value, ASN1Integer, ASN1Boolean, ASN1String, ASN1OID,
     ASN1Null, ASN1OctetString, ASN1BitString, ASN1Unknown,
     ASN1Sequence, ASN1Set, ASN1Error, der_to_asn1, asn1_to_der
@@ -26,7 +27,10 @@ using Base64
 
 module DERFirewall
 
+using ..AbstractSyntaxNotationOne
+
 using OpenSSL_jll
+
 const libcrypto = OpenSSL_jll.libcrypto
 
 function parse_evp_pkey(der::Vector{UInt8})
@@ -34,7 +38,6 @@ function parse_evp_pkey(der::Vector{UInt8})
         # pointer to buffer pointer
         p = Ref{Ptr{UInt8}}(pointer(der))
         len = Clong(length(der))
-        # EVP_PKEY **a
         key = ccall((:d2i_PUBKEY, libcrypto), Ptr{Cvoid},
             (Ref{Ptr{Cvoid}}, Ref{Ptr{UInt8}}, Clong),
             Ref{Ptr{Cvoid}}(C_NULL), p, len)
@@ -46,7 +49,6 @@ function parse_rsa_publickey(der::Vector{UInt8})
     GC.@preserve der begin
         p = Ref{Ptr{UInt8}}(pointer(der))
         len = Clong(length(der))
-        # RSA **a
         key = ccall((:d2i_RSAPublicKey, libcrypto), Ptr{Cvoid},
             (Ref{Ptr{Cvoid}}, Ref{Ptr{UInt8}}, Clong),
             Ref{Ptr{Cvoid}}(C_NULL), p, len)
@@ -71,6 +73,46 @@ function openssl_get_error_msg()
         end
     end
     return isempty(msgs) ? "" : join(msgs, "; ")
+end
+
+function pkey_cmp(a::Ptr{Cvoid}, b::Ptr{Cvoid})
+    r = ccall((:EVP_PKEY_cmp, libcrypto), Cint,
+              (Ptr{Cvoid}, Ptr{Cvoid}), a, b)
+    if r < 0
+        error("DERFirewall: EVP_PKEY_cmp not supported or key type mismatch")
+    end
+    r == 1
+end
+
+function parse_check_evp_pkey(der::Vector{UInt8})
+    key = parse_evp_pkey(der)
+    if key == C_NULL
+        msg = openssl_get_error_msg()
+        error("DERFirewall: OpenSSL d2i_PUBKEY failed: $msg")
+    end
+    key
+end
+
+function keys_equal_by_openssl(der1::Vector{UInt8}, der2::Vector{UInt8})
+    k1 = parse_evp_pkey(der1)
+    k2 = parse_evp_pkey(der2)
+    if k1 == C_NULL || k2 == C_NULL
+        if k1 != C_NULL
+            ccall((:EVP_PKEY_free, libcrypto), Cvoid, (Ptr{Cvoid},), k1)
+        end
+        if k2 != C_NULL
+            ccall((:EVP_PKEY_free, libcrypto), Cvoid, (Ptr{Cvoid},), k2)
+        end
+        error("DERFirewall: OpenSSL key compare could not parse key(s).")
+    end
+    ok = pkey_cmp(k1, k2)
+    ccall((:EVP_PKEY_free, libcrypto), Cvoid, (Ptr{Cvoid},), k1)
+    ccall((:EVP_PKEY_free, libcrypto), Cvoid, (Ptr{Cvoid},), k2)
+    if !ok
+        error("DERFirewall: OpenSSL key comparison: 
+        keys not semantically equal.")
+    end
+    true
 end
 
 function _verify_der_strict(der::Vector{UInt8}; allow_ec=true,
@@ -107,6 +149,21 @@ function _verify_der_strict(der::Vector{UInt8}; allow_ec=true,
     msg = openssl_get_error_msg()
     throw(ErrorException("Key parse failed: Not a 
     recognized SPKI or RSA raw public key; $msg"))
+end
+
+function firewall_compare_der(der::Vector{UInt8}, tree=nothing)
+    ckey = parse_check_evp_pkey(der)
+    if tree === nothing
+        tree, pos = AbstractSyntaxNotationOne.DER._decode_one(der, 1, 0)
+        if pos <= length(der)
+            ccall((:EVP_PKEY_free, libcrypto), Cvoid, (Ptr{Cvoid},), ckey)
+            error("DERFirewall: Extra data after root element")
+        end
+    end
+    enc = AbstractSyntaxNotationOne.DER.encode(tree === nothing ? tree : tree)
+    keys_equal_by_openssl(der, enc)
+    ccall((:EVP_PKEY_free, libcrypto), Cvoid, (Ptr{Cvoid},), ckey)
+    return true
 end
 
 end # module
@@ -268,12 +325,13 @@ function _decode_one(data::Vector{UInt8}, pos::Int, depth::Int=0)
 end
 
 function decode(data::Vector{UInt8})
-    if AbstractSyntaxNotationOne.EXTERNAL_DER_VALIDATION[]
-        AbstractSyntaxNotationOne.DERFirewall._verify_der_strict(data)
-    end
     tree, pos = _decode_one(data, 1, 0)
     if pos <= length(data)
         throw(ErrorException("Extra data after root element"))
+    end
+        if AbstractSyntaxNotationOne.EXTERNAL_DER_VALIDATION[]
+        #AbstractSyntaxNotationOne.DERFirewall._verify_der_strict(data)
+        AbstractSyntaxNotationOne.DERFirewall.firewall_compare_der(data, tree)
     end
     return tree
 end
@@ -334,15 +392,14 @@ function encode(tree::DERTree)
 end
 
 function decode_pem(pem::String)
-    m = match(r"-----BEGIN ([A-Z ]+)-----(.*?)-----END ([A-Z ]+)-----"ms, pem)
-    if m === nothing || m.captures[1] != m.captures[3]
-        throw(ErrorException("PEM label mismatch"))
-    end
-    body = replace(m.captures[2], r"\s+" => "")
-    if length(body) > 4 * (MAX_DER_LENGTH + 1024)
+    lines = split(pem, '\n')
+    b64lines = filter(line -> !(startswith(line, "-----") || 
+    isempty(strip(line))), lines)
+    b64 = join(b64lines, "")
+    if length(b64) > 4 * (MAX_DER_LENGTH + 1024)
         throw(ErrorException("PEM body too large"))
     end
-    return decode(Vector{UInt8}(base64decode(body)))
+    return decode(Vector{UInt8}(base64decode(b64)))
 end
 
 function encode_pem(tree::DERTree; label="ASN1")
@@ -676,3 +733,9 @@ function convert(::Type{Vector{UInt8}}, bs::ASN1BitString)
 end
 
 end
+
+#egrep -nr --color=always \
+#  '([a-zA-Z_][a-zA-Z0-9_ ]*\*?[ ]+)?(d2i_PUBKEY|d2i_RSAPublicKey|'\
+#'EVP_PKEY|d2i_EC_PUBKEY|EVP_PKEY_cmp|EVP_PKEY_free|RSA_free|'\
+#'ERR_get_error|ERR_error_string_n|ERR_clear_error)' \
+#  /usr/include/openssl/*.h

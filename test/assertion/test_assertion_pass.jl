@@ -49,9 +49,6 @@ C82+y/BQk/Y32NTnlzVgVWpw75IxyiQuucw0QJbzN+zC8r2IIRek+HDPnA==
         85, 226, 130, 91, 186, 99, 254, 235, 235, 128, 196, 39, 181, 85, 222,
         101, 200, 95, 31, 239, 38, 171, 109, 128, 70
     ]
-
-    verify_webauthn_signature(pem, authData, clientDataJSON, sigDER)
-
     @test verify_webauthn_signature(pem, authData, clientDataJSON, sigDER)
     badsig = copy(sigDER)
     badsig[10] ⊻= 0xFF
@@ -95,6 +92,7 @@ cwIDAQAB
         10, 203, 23, 107, 195, 16, 162, 195, 240, 78, 214, 78, 165, 99, 78,
         62, 159, 201, 181, 55, 249, 107, 169, 217, 239, 63
     ]
+
     @test verify_webauthn_signature(pem, authData, clientDataJSON, sig_der)
     badsig = copy(sig_der)
     badsig[10] ⊻= 0xFF

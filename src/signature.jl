@@ -1,8 +1,9 @@
 export verify_webauthn_signature
 
 """
-    verify_webauthn_signature(key_or_pem, authenticatorData, clientDataJSON, 
-        signature)::Bool
+    verify_webauthn_signature(key_or_pem, authenticatorData, 
+        clientDataJSON)::Bool
+
 
 Verify a WebAuthn assertion signature for the given public key or PEM.
 
@@ -100,8 +101,6 @@ function verify_webauthn_signature(pubkey_pem::AbstractString,
 
     return false
 end
-
-
 
 #=
 # Dont go for this!!

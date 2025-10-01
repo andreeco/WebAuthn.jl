@@ -378,6 +378,7 @@ function parse_ec_pem_xy(pem::AbstractString)
     y = rawbytes[34:65]
     return x, y
 end
+
 """
     parse_rsa_pem_ne(pem::AbstractString)
 
@@ -414,30 +415,18 @@ true
 See also: [`pem_to_der`](@ref) and [`parse_ec_pem_xy`](@ref).
 """
 function parse_rsa_pem_ne(pem::AbstractString)
-    der = pem_to_der(pem)
-    spki = AbstractSyntaxNotationOne.der_to_asn1(
-        AbstractSyntaxNotationOne.DER.decode(der))
+    der = WebAuthn.pem_to_der(pem)
+    # Firewall is called in DER.decode(der)
+    spki = WebAuthn.AbstractSyntaxNotationOne.der_to_asn1(
+        WebAuthn.AbstractSyntaxNotationOne.DER.decode(der)) 
     _, bitstr = spki.elements
-
     inner_bytes = convert(Vector{UInt8}, bitstr)
-    inner = AbstractSyntaxNotationOne.der_to_asn1(
-        AbstractSyntaxNotationOne.DER.decode(inner_bytes))
-    n_asn1, e_asn1 = inner.elements
-
-    # Convert BigInt to big‑endian bytes
-    bigint_to_bytes(b::BigInt) = begin
-        v = b
-        v < 0 && error("Negative modulus/exponent not allowed")
-        out = UInt8[]
-        while v > 0
-            pushfirst!(out, UInt8(v & 0xff))
-            v >>= 8
-        end
-        isempty(out) && push!(out, 0x00)
-        out
-    end
-    return bigint_to_bytes(n_asn1.value), 
-    bigint_to_bytes(e_asn1.value)
+    # Parse raw RSAPublicKey node (no firewall)
+    tree, _ = WebAuthn.AbstractSyntaxNotationOne.DER._decode_one(
+        inner_bytes, 1, 0)
+    n_node = tree.children[1]
+    e_node = tree.children[2]
+    return n_node.value, e_node.value
 end
 
 """

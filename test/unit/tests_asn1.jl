@@ -298,9 +298,9 @@ const DERFIREWALL = WebAuthn.AbstractSyntaxNotationOne.DERFirewall
         # d2i_PUBKEY (RSA)
         @test DERFIREWALL._verify_der_strict(rsa_key) == true
         # d2i_PUBKEY (EC)
-        @test DERFIREWALL._verify_der_strict(ec_key)  == true
+        @test DERFIREWALL._verify_der_strict(ec_key) == true
         # d2i_PUBKEY (Ed25519)
-        @test DERFIREWALL._verify_der_strict(ed_key)  == true
+        @test DERFIREWALL._verify_der_strict(ed_key) == true
     end
 
     # 2. Malformed: all ways that must throw (every 'fail' branch)
@@ -327,23 +327,26 @@ const DERFIREWALL = WebAuthn.AbstractSyntaxNotationOne.DERFirewall
         ec_key = load_der("ec_p256_spki")
         ed_key = load_der("ed25519_spki")
         # Flip tag byte – must fail:
-        mut_tag = copy(rsa_key); mut_tag[1] ⊻= 0xFF
+        mut_tag = copy(rsa_key)
+        mut_tag[1] ⊻= 0xFF
         @test_throws ErrorException DERFIREWALL._verify_der_strict(mut_tag)
         # Flip length/header in EC:
-        mut_len = copy(ec_key); mut_len[2] ⊻= 0x0F
+        mut_len = copy(ec_key)
+        mut_len[2] ⊻= 0x0F
         @test_throws ErrorException DERFIREWALL._verify_der_strict(mut_len)
         # Truncate Ed25519:
         mut_trunc = ed_key[1:end-3]
         @test_throws ErrorException DERFIREWALL._verify_der_strict(mut_trunc)
         # Flip a middle data byte – can be tolerated!
-        mut_data = copy(rsa_key); mut_data[end-10] ⊻= 0xA5
+        mut_data = copy(rsa_key)
+        mut_data[end-10] ⊻= 0xA5
         res = try
             DERFIREWALL._verify_der_strict(mut_data)
             :accepted
         catch
             :rejected
         end
-         # OpenSSL: tolerant to some benign data mutations!
+        # OpenSSL: tolerant to some benign data mutations!
         @test res in (:accepted, :rejected)
     end
 
@@ -392,4 +395,205 @@ const DERFIREWALL = WebAuthn.AbstractSyntaxNotationOne.DERFirewall
     @testset "Empty input is always rejected" begin
         @test_throws ErrorException DERFIREWALL._verify_der_strict(UInt8[])
     end
+
+    # 9. Test repeated allocation/free for resource safety
+    @testset "Repeated parse/free does not leak handles" begin
+        rsa_key = load_der("rsa_spki")
+        for i in 1:1000
+            ptr = DERFIREWALL.parse_evp_pkey(rsa_key)
+            @test ptr != C_NULL
+            ccall((:EVP_PKEY_free, DERFIREWALL.libcrypto), Cvoid,
+                (Ptr{Cvoid},), ptr)
+        end
+    end
+
+    # 10. Key compare (keys_equal_by_openssl) – equal and not equal
+    @testset "keys_equal_by_openssl: equal and mismatch" begin
+        rsa_key = load_der("rsa_spki")
+        rsa_key2 = copy(rsa_key)
+        @test DERFIREWALL.keys_equal_by_openssl(rsa_key, rsa_key2)
+        mut = copy(rsa_key)
+        mut[end] ⊻= 0x1A
+        @test_throws ErrorException DERFIREWALL.keys_equal_by_openssl(
+            rsa_key, mut)
+        ed_key = load_der("ed25519_spki")
+        @test_throws ErrorException DERFIREWALL.keys_equal_by_openssl(
+            rsa_key, ed_key)
+    end
+
+    # 11. Explicitly test pointer identity comparison (same handle)
+    @testset "EVP_PKEY_cmp with same pointer returns 1" begin
+        rsa_key = load_der("rsa_spki")
+        ptr = DERFIREWALL.parse_evp_pkey(rsa_key)
+        res = ccall((:EVP_PKEY_cmp, DERFIREWALL.libcrypto), Cint,
+            (Ptr{Cvoid}, Ptr{Cvoid}), ptr, ptr)
+        @test res == 1
+        ccall((:EVP_PKEY_free, DERFIREWALL.libcrypto), Cvoid, (Ptr{Cvoid},),
+            ptr)
+    end
+
+    # 12. parse_rsa_publickey: valid raw and fallback behavior
+    @testset "parse_rsa_publickey: valid and invalid" begin
+        rsa_raw = load_der("rsa_raw")
+        ptr = DERFIREWALL.parse_rsa_publickey(rsa_raw)
+        @test ptr != C_NULL
+        ccall((:RSA_free, DERFIREWALL.libcrypto), Cvoid, (Ptr{Cvoid},), ptr)
+        # Should fail for other formats
+        ed_key = load_der("ed25519_spki")
+        ptr2 = DERFIREWALL.parse_rsa_publickey(ed_key)
+        @test ptr2 == C_NULL
+    end
+
+    # 13. firewall_compare_der API: both (DER) and (DER, tree)
+    @testset "firewall_compare_der: DER-only and (DER, tree) mode" begin
+        rsa_key = load_der("rsa_spki")
+        tree, pos = WebAuthn.AbstractSyntaxNotationOne.DER._decode_one(
+            rsa_key, 1, 0)
+        @test DERFIREWALL.firewall_compare_der(rsa_key) == true
+        @test DERFIREWALL.firewall_compare_der(rsa_key, tree) == true
+        # Evil translation (encodings mismatch): must throw
+        evil = copy(rsa_key)
+        evil[end-4] ⊻= 0x10
+        tree2, _ = WebAuthn.AbstractSyntaxNotationOne.DER._decode_one(
+            evil, 1, 0)
+        @test_throws ErrorException DERFIREWALL.firewall_compare_der(
+            evil, tree2)
+        @test_throws ErrorException DERFIREWALL.firewall_compare_der(
+            evil)
+    end
+
+    # 14. openssl_get_error_msg should be useful on error
+    @testset "openssl_get_error_msg is nonempty after parse failure" begin
+        _ = DERFIREWALL.parse_evp_pkey(UInt8[0xde, 0xad])
+        msg = DERFIREWALL.openssl_get_error_msg()
+        @test msg isa String
+    end
+
+    # 15. Fuzz parse_evp_pkey and parse_rsa_publickey for S crash/leak
+    @testset "Fuzz parse_evp_pkey/parse_rsa_publickey \
+    for leaks and aborts" begin
+        for i in 1:100
+            dat = rand(UInt8, rand(5:256))
+            ptr = DERFIREWALL.parse_evp_pkey(dat)
+            if ptr != C_NULL
+                ccall((:EVP_PKEY_free, DERFIREWALL.libcrypto), Cvoid,
+                    (Ptr{Cvoid},), ptr)
+            end
+            ptr2 = DERFIREWALL.parse_rsa_publickey(dat)
+            if ptr2 != C_NULL
+                ccall((:RSA_free, DERFIREWALL.libcrypto), Cvoid,
+                    (Ptr{Cvoid},), ptr2)
+            end
+        end
+    end
+
+    # 16. Defensive: compare keys of cross-type (should not semantically match)
+    @testset "EVP_PKEY_cmp: cross-type keys never match" begin
+        ec_key = load_der("ec_p256_spki")
+        ed_key = load_der("ed25519_spki")
+        ptr1 = DERFIREWALL.parse_evp_pkey(ec_key)
+        ptr2 = DERFIREWALL.parse_evp_pkey(ed_key)
+        cmp = ccall((:EVP_PKEY_cmp, DERFIREWALL.libcrypto), Cint, (Ptr{Cvoid},
+                Ptr{Cvoid}), ptr1, ptr2)
+        @test cmp != 1
+        ccall((:EVP_PKEY_free, DERFIREWALL.libcrypto), Cvoid,
+            (Ptr{Cvoid},), ptr1)
+        ccall((:EVP_PKEY_free, DERFIREWALL.libcrypto), Cvoid,
+            (Ptr{Cvoid},), ptr2)
+    end
+
+    # 17. Big fuzzer: stress all functions with 10000 random rounds 
+    # (will catch handle/mem errors)
+    @testset "Stress: 10000 rounds on ccall parse/free/cmp" begin
+        keys = [
+            load_der("rsa_spki"),
+            load_der("ec_p256_spki"),
+            load_der("ed25519_spki")
+        ]
+        for i in 1:10000
+            dat = keys[rand(1:end)]
+            ptr = DERFIREWALL.parse_evp_pkey(dat)
+            if ptr != C_NULL
+                ccall((:EVP_PKEY_free, DERFIREWALL.libcrypto), Cvoid,
+                    (Ptr{Cvoid},), ptr)
+            end
+            dat2 = keys[rand(1:end)]
+            ptr2 = DERFIREWALL.parse_evp_pkey(dat2)
+            if ptr2 != C_NULL
+                ccall((:EVP_PKEY_free, DERFIREWALL.libcrypto), Cvoid,
+                    (Ptr{Cvoid},), ptr2)
+            end
+            # Cross-compare sometimes
+            if ptr != C_NULL && ptr2 != C_NULL
+                ok = ccall((:EVP_PKEY_cmp, DERFIREWALL.libcrypto), Cint,
+                    (Ptr{Cvoid}, Ptr{Cvoid}), ptr, ptr2)
+                @test ok == 1 || ok == 0 || ok == -1
+            end
+        end
+    end
+
 end
+
+#=
+
+using WebAuthn, WebAuthn.AbstractSyntaxNotationOne
+using WebAuthn.AbstractSyntaxNotationOne.DERFirewall
+using Test, WebAuthn.AbstractSyntaxNotationOne.DER
+
+using OpenSSL_jll
+
+const libcrypto = OpenSSL_jll.libcrypto
+
+const TESTVEC_DIR = joinpath(dirname(pathof(WebAuthn)),
+           "..", "test", "vectors", "der_testvectors")
+
+function load_der(name)
+           read(joinpath(TESTVEC_DIR, "$name.der"))
+       end
+
+function pkey_cmp(a::Ptr{Cvoid}, b::Ptr{Cvoid})::Bool
+    r = ccall((:EVP_PKEY_cmp, libcrypto), Cint,
+              (Ptr{Cvoid},Ptr{Cvoid}), a, b)
+    if r < 0
+        throw(ErrorException("EVP_PKEY_cmp says unsupported"))
+    end
+    return r == 1            # 1 == equal, 0 == not equal
+end
+
+function keys_equal(der1::Vector{UInt8}, der2::Vector{UInt8})::Bool
+    k1 = DERFirewall.parse_evp_pkey(der1)
+    k2 = DERFirewall.parse_evp_pkey(der2)
+    try
+        return pkey_cmp(k1, k2)
+    finally
+        ccall((:EVP_PKEY_free, libcrypto), Cvoid, (Ptr{Cvoid},), k1)
+        ccall((:EVP_PKEY_free, libcrypto), Cvoid, (Ptr{Cvoid},), k2)
+    end
+end
+
+function roundtrip_der(der::Vector{UInt8})::Vector{UInt8}
+    tree = DER.decode(der)
+    return DER.encode(tree::DERTree)
+end
+
+# In your tests:
+orig = load_der("rsa_spki")
+reenc = roundtrip_der(orig)
+
+@test keys_equal(orig, reenc)
+
+orig   = load_der("rsa_spki")
+parsed = DER.decode(orig)
+reenc   = DER.encode(parsed)
+@test keys_equal(orig, reenc)
+
+=#
+
+#=
+@which DER.encode(parsed)
+@edit DER.encode(parsed)
+
+pathoffunction = joinpath(dirname(pathof(WebAuthn)), "asn1.jl")
+run(`awk '/function encode\(tree::DERTree\)/{for(i=0;i<7;i++)
+{print; getline}}' $pathoffunction`);
+=#

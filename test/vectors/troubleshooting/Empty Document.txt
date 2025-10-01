@@ -1,0 +1,68 @@
+
+
+```bash
+# 1. Generate a fresh 2048-bit RSA private key
+openssl genpkey -algorithm RSA -out privkey.pem -pkeyopt rsa_keygen_bits:2048
+
+# 2. Create a public key DER (SubjectPublicKeyInfo)
+openssl rsa -in privkey.pem -pubout -outform DER -out key.der
+
+# 3. Make test message
+# Construct a random WebAuthn-like message (authData || SHA256(clientDataJSON)).
+head -c 37 /dev/urandom > ad.bin
+head -c 17 /dev/urandom > cdj.bin
+openssl dgst -sha256 -binary cdj.bin > cdjhash.bin
+cat ad.bin cdjhash.bin > msg.bin
+
+# 4. Sign the message (signing SHA256(msg.bin))
+openssl dgst -sha256 -sign privkey.pem -out sig.bin msg.bin
+
+# 5. Verify signature (should say 'Verified OK')
+openssl dgst -sha256 -verify <(openssl rsa -in privkey.pem -pubout) -signature sig.bin msg.bin
+```
+
+```julia
+using SHA, OpenSSL_jll
+
+# 1. Read files as Vector{UInt8}
+msg = read("msg.bin")
+sig = read("sig.bin")
+der = read("key.der")
+buf = Vector{UInt8}(der)
+
+# 2. Parse EVP_PKEY from DER data (correct ccall!)
+pp = Ref(pointer(buf))
+pkey = ccall(
+    (:d2i_PUBKEY, OpenSSL_jll.libcrypto), Ptr{Cvoid},
+    (Ref{Ptr{Cvoid}}, Ref{Ptr{UInt8}}, Clong),
+    Ref{Ptr{Cvoid}}(C_NULL), pp, Clong(length(buf)))
+if pkey == C_NULL
+    error("Failed to parse public key!")
+end
+
+# 3. Create EVP_MD_CTX
+mdctx = ccall((:EVP_MD_CTX_new, OpenSSL_jll.libcrypto), Ptr{Cvoid}, ())
+
+# 4. Set up for SHA256
+md = ccall((:EVP_get_digestbyname, OpenSSL_jll.libcrypto), Ptr{Cvoid}, (Cstring,), "SHA256")
+md == C_NULL && error("SHA256 digest not found")
+
+rc = ccall((:EVP_DigestVerifyInit, OpenSSL_jll.libcrypto), Cint,
+    (Ptr{Cvoid}, Ptr{Ptr{Cvoid}}, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}),
+    mdctx, C_NULL, md, C_NULL, pkey)
+rc == 1 || error("EVP_DigestVerifyInit failed")
+
+# 5. Actually verify signature (OpenSSL will hash msg itself)
+isvalid_ = ccall((:EVP_DigestVerify, OpenSSL_jll.libcrypto), Cint,
+    (Ptr{Cvoid}, Ptr{UInt8}, Csize_t, Ptr{UInt8}, Csize_t),
+    mdctx,
+    pointer(sig), Csize_t(length(sig)),
+    pointer(msg), Csize_t(length(msg))
+) == 1
+
+println("Julia/OpenSSL_jll: Signature valid? ", isvalid_)
+
+# 6. Cleanup pointers
+ccall((:EVP_MD_CTX_free, OpenSSL_jll.libcrypto), Cvoid, (Ptr{Cvoid},), mdctx)
+ccall((:EVP_PKEY_free, OpenSSL_jll.libcrypto), Cvoid, (Ptr{Cvoid},), pkey)
+```
