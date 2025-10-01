@@ -30,51 +30,71 @@ using OpenSSL_jll
 const libcrypto = OpenSSL_jll.libcrypto
 
 function parse_evp_pkey(der::Vector{UInt8})
-    p = Ref{Ptr{UInt8}}(pointer(der))
-    len = Ref{Cint}(length(der))
-    key = ccall((:d2i_PUBKEY, libcrypto), Ptr{Cvoid},
-        (Ptr{Ptr{Cvoid}}, Ptr{Ptr{UInt8}}, Ptr{Cint}),
-        Ref(Ptr{Cvoid}(C_NULL)), p, len)
-    return key
+    GC.@preserve der begin
+        # pointer to buffer pointer
+        p = Ref{Ptr{UInt8}}(pointer(der))
+        len = Clong(length(der))
+        # EVP_PKEY **a
+        key = ccall((:d2i_PUBKEY, libcrypto), Ptr{Cvoid},
+            (Ref{Ptr{Cvoid}}, Ref{Ptr{UInt8}}, Clong),
+            Ref{Ptr{Cvoid}}(C_NULL), p, len)
+        return key
+    end
 end
 
 function parse_rsa_publickey(der::Vector{UInt8})
-    p = Ref{Ptr{UInt8}}(pointer(der))
-    key = ccall((:d2i_RSAPublicKey, libcrypto), Ptr{Cvoid},
-        (Ptr{Ptr{Cvoid}}, Ptr{Ptr{UInt8}}, Cint),
-        Ref(Ptr{Cvoid}(C_NULL)), p, length(der))
-    return key
+    GC.@preserve der begin
+        p = Ref{Ptr{UInt8}}(pointer(der))
+        len = Clong(length(der))
+        # RSA **a
+        key = ccall((:d2i_RSAPublicKey, libcrypto), Ptr{Cvoid},
+            (Ref{Ptr{Cvoid}}, Ref{Ptr{UInt8}}, Clong),
+            Ref{Ptr{Cvoid}}(C_NULL), p, len)
+        return key
+    end
 end
 
 function openssl_get_error_msg()
-    err = ccall((:ERR_get_error, libcrypto), Culong, ())
-    if err == 0
-        return ""
+    msgs = String[]
+    while true
+        err = ccall((:ERR_get_error, libcrypto), Culong, ())
+        err == 0 && break
+        buf = Vector{UInt8}(undef, 256)
+        ccall((:ERR_error_string_n, libcrypto), Cvoid,
+            (Culong, Ptr{UInt8}, Csize_t),
+            err, pointer(buf), Csize_t(length(buf)))
+        n = findfirst(==(0x00), buf)
+        if n !== nothing && n > 1
+            push!(msgs, String(view(buf, 1:n-1)))
+        else
+            push!(msgs, unsafe_string(pointer(buf)))
+        end
     end
-    buf = Vector{UInt8}(undef, 256)
-    ccall((:ERR_error_string_n, libcrypto), Cvoid,
-        (Culong, Ptr{UInt8}, Csize_t),
-        err, pointer(buf), sizeof(buf))
-    return unsafe_string(pointer(buf))
+    return isempty(msgs) ? "" : join(msgs, "; ")
 end
 
-function _verify_der_strict(der::Vector{UInt8}; allow_ec=true,
+function _verify_der_strict(der::Vector{UInt8}; allow_ec=true, 
     allow_rsa=true, allow_ed25519=true)
-    # Only checks if DER parses as any key; type is NOT enforced
-    # due to missing EVP_PKEY_id in OpenSSL_jll.
+    # Clear OpenSSL error queue before parsing
+    ccall((:ERR_clear_error, libcrypto), Cvoid, ())
+
     key = parse_evp_pkey(der)
     if key != C_NULL
+        # TODO: check key type! See notes.
         ccall((:EVP_PKEY_free, libcrypto), Cvoid, (Ptr{Cvoid},), key)
         return true
     end
-    # Strict key type filtering
+
+    # Strict key type filtering - not active. Implement if EVP_PKEY_id available.
     # ktype = ccall((:EVP_PKEY_id, libcrypto), Cint, (Ptr{Cvoid},), key)
     # if (ktype == 408 && allow_ec) || 
     # (ktype == 6 && allow_rsa) || 
     # (ktype == 1087 && allow_ed25519)
+    #     ccall((:EVP_PKEY_free, libcrypto), Cvoid, (Ptr{Cvoid},), key)
     #     return true
     # else
-    #    throw(ErrorException("Key type not allowed: $ktype"))
+    #     ccall((:EVP_PKEY_free, libcrypto), Cvoid, (Ptr{Cvoid},), key)
+    #     throw(ErrorException("Key type not allowed: $ktype"))
     # end
 
     if allow_rsa
@@ -85,12 +105,11 @@ function _verify_der_strict(der::Vector{UInt8}; allow_ec=true,
         end
     end
     msg = openssl_get_error_msg()
-    throw(ErrorException("Key parse failed: Not a recognized SPKI or 
-    RSA raw public key; $msg"))
+    throw(ErrorException("Key parse failed: Not a 
+    recognized SPKI or RSA raw public key; $msg"))
 end
 
 end # module
-
 using .DERFirewall
 
 module DER

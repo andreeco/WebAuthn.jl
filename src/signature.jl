@@ -46,15 +46,15 @@ function verify_webauthn_signature(key::OKPPublicKey, ad::Vector{UInt8},
 end
 
 function verify_webauthn_signature(key::EC2PublicKey,
-                                   ad::Vector{UInt8},
-                                   cdj::Vector{UInt8},
-                                   sig::Vector{UInt8})::Bool
+    ad::Vector{UInt8},
+    cdj::Vector{UInt8},
+    sig::Vector{UInt8})::Bool
     msg = vcat(ad, SHA.sha256(cdj))
     digest = SHA.sha256(msg)
     return verify_p256_signature_raw_xy(key.x, key.y, digest, sig)
 end
 
-function verify_webauthn_signature(key::RSAPublicKey, ad::Vector{UInt8}, 
+function verify_webauthn_signature(key::RSAPublicKey, ad::Vector{UInt8},
     cdj::Vector{UInt8}, sig::Vector{UInt8})::Bool
     msg = vcat(ad, SHA.sha256(cdj))
     msg_hash = SHA.sha256(msg)
@@ -185,48 +185,58 @@ false
 ```
 """
 function verify_p256_signature_raw_xy(x::Vector{UInt8},
-                                     y::Vector{UInt8},
-                                     digest::Vector{UInt8},
-                                     sig::Vector{UInt8})::Bool
+    y::Vector{UInt8},
+    digest::Vector{UInt8},
+    sig::Vector{UInt8})::Bool
 
-    # 1) Create new EC_KEY for curve P-256
-    NID_P256 = 415  # NID_X9_62_prime256v1
+    NID_P256 = 415
+    NID_sha256 = 672
+
     ec_key = ccall((:EC_KEY_new_by_curve_name, OpenSSL_jll.libcrypto),
-                   Ptr{Cvoid}, (Cint,), NID_P256)
+        Ptr{Cvoid}, (Cint,), NID_P256)
     ec_key == C_NULL && error("Failed to create EC_KEY")
 
-    # 2) Build BIGNUMs for X, Y
-    bn_x = ccall((:BN_bin2bn, OpenSSL_jll.libcrypto), Ptr{Cvoid},
-                 (Ptr{UInt8}, Cint, Ptr{Cvoid}),
-                 pointer(x), length(x), C_NULL)
-    bn_y = ccall((:BN_bin2bn, OpenSSL_jll.libcrypto), Ptr{Cvoid},
-                 (Ptr{UInt8}, Cint, Ptr{Cvoid}),
-                 pointer(y), length(y), C_NULL)
-    bn_x == C_NULL && error("Failed to create bn_x")
-    bn_y == C_NULL && error("Failed to create bn_y")
+    GC.@preserve x y digest sig begin
+        bn_x = ccall((:BN_bin2bn, OpenSSL_jll.libcrypto), Ptr{Cvoid},
+            (Ptr{UInt8}, Cint, Ptr{Cvoid}), pointer(x),
+            Cint(length(x)), C_NULL)
+        bn_y = ccall((:BN_bin2bn, OpenSSL_jll.libcrypto), Ptr{Cvoid},
+            (Ptr{UInt8}, Cint, Ptr{Cvoid}), pointer(y),
+            Cint(length(y)), C_NULL)
+        bn_x == C_NULL && (ccall((:EC_KEY_free, OpenSSL_jll.libcrypto),
+            Cvoid, (Ptr{Cvoid},), ec_key);
+        error("Failed to create bn_x"))
+        bn_y == C_NULL && (ccall((:BN_free, OpenSSL_jll.libcrypto),
+            Cvoid, (Ptr{Cvoid},), bn_x);
+        ccall((:EC_KEY_free,
+                OpenSSL_jll.libcrypto), Cvoid, (Ptr{Cvoid},), ec_key);
+        error("Failed to create bn_y"))
 
-    # 3) Attach coordinates to EC_KEY
-    ok = ccall((:EC_KEY_set_public_key_affine_coordinates, OpenSSL_jll.libcrypto),
-               Cint, (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}),
-               ec_key, bn_x, bn_y)
-               
-    ok != 1 && error("Failed to set EC public key coordinates")
+        success = false
+        try
+            # 3) Attach coords
+            ok = ccall((:EC_KEY_set_public_key_affine_coordinates,
+                    OpenSSL_jll.libcrypto),
+                Cint, (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}),
+                ec_key, bn_x, bn_y)
+            ok != 1 && error("Failed to set EC coords")
 
-    # 4) Perform ECDSA_verify: pass NID_sha256 so OpenSSL treats 'digest' as SHA-256
-    NID_sha256 = 672
-    ret = ccall((:ECDSA_verify, OpenSSL_jll.libcrypto), Cint,
+            # 4) ECDSA_verify
+            ret = ccall((:ECDSA_verify, OpenSSL_jll.libcrypto), Cint,
                 (Cint, Ptr{UInt8}, Cint, Ptr{UInt8}, Cint, Ptr{Cvoid}),
                 NID_sha256,
-                pointer(digest), length(digest),
-                pointer(sig),    length(sig),
+                pointer(digest), Cint(length(digest)),
+                pointer(sig), Cint(length(sig)),
                 ec_key)
-
-    # 5) Clean up
-    ccall((:EC_KEY_free,  OpenSSL_jll.libcrypto), Cvoid, (Ptr{Cvoid},), ec_key)
-    ccall((:BN_free,      OpenSSL_jll.libcrypto), Cvoid, (Ptr{Cvoid},), bn_x)
-    ccall((:BN_free,      OpenSSL_jll.libcrypto), Cvoid, (Ptr{Cvoid},), bn_y)
-
-    return ret == 1
+            success = (ret == 1)
+        finally
+            ccall((:BN_free, OpenSSL_jll.libcrypto), Cvoid, (Ptr{Cvoid},), bn_x)
+            ccall((:BN_free, OpenSSL_jll.libcrypto), Cvoid, (Ptr{Cvoid},), bn_y)
+            ccall((:EC_KEY_free, OpenSSL_jll.libcrypto), Cvoid,
+                (Ptr{Cvoid},), ec_key)
+        end
+    end # GC.@preserve
+    return success
 end
 
 """
@@ -271,25 +281,48 @@ julia> WebAuthn.verify_rsa_signature_raw_ne(n, e, digest, sig_bad)
 false
 ```
 """
-function verify_rsa_signature_raw_ne(n::Vector{UInt8}, e::Vector{UInt8}, 
+function verify_rsa_signature_raw_ne(n::Vector{UInt8}, e::Vector{UInt8},
     digest::Vector{UInt8}, sig::Vector{UInt8})::Bool
-    rsa = ccall((:RSA_new, OpenSSL_jll.libcrypto), Ptr{Cvoid}, ())
-    bn_n = ccall((:BN_bin2bn, OpenSSL_jll.libcrypto), Ptr{Cvoid}, 
-    (Ptr{UInt8}, Cint, Ptr{Cvoid}),
-        pointer(n), length(n), C_NULL)
-    bn_e = ccall((:BN_bin2bn, OpenSSL_jll.libcrypto), Ptr{Cvoid}, 
-    (Ptr{UInt8}, Cint, Ptr{Cvoid}),
-        pointer(e), length(e), C_NULL)
-    ccall((:RSA_set0_key, OpenSSL_jll.libcrypto), Cint,
-        (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}), rsa, bn_n, 
-        bn_e, C_NULL)
+
     NID_sha256 = 672
-    ret = ccall((:RSA_verify, OpenSSL_jll.libcrypto), Cint,
-        (Cint, Ptr{UInt8}, Cuint, Ptr{UInt8}, Cuint, Ptr{Cvoid}),
-        NID_sha256,
-        pointer(digest), length(digest),
-        pointer(sig), length(sig),
-        rsa)
-    ccall((:RSA_free, OpenSSL_jll.libcrypto), Cvoid, (Ptr{Cvoid},), rsa)
-    return ret == 1
+
+    rsa = ccall((:RSA_new, OpenSSL_jll.libcrypto), Ptr{Cvoid}, ())
+    rsa == C_NULL && error("Failed to allocate RSA")
+
+    GC.@preserve n e digest sig begin
+        bn_n = ccall((:BN_bin2bn, OpenSSL_jll.libcrypto), Ptr{Cvoid},
+            (Ptr{UInt8}, Cint, Ptr{Cvoid}), pointer(n), Cint(length(n)),
+            C_NULL)
+        bn_e = ccall((:BN_bin2bn, OpenSSL_jll.libcrypto), Ptr{Cvoid},
+            (Ptr{UInt8}, Cint, Ptr{Cvoid}), pointer(e), Cint(length(e)),
+            C_NULL)
+        bn_n == C_NULL && (ccall((:RSA_free, OpenSSL_jll.libcrypto), Cvoid,
+            (Ptr{Cvoid},), rsa);
+        error("Failed to create bn_n"))
+        bn_e == C_NULL && (ccall((:BN_free, OpenSSL_jll.libcrypto), Cvoid,
+            (Ptr{Cvoid},), bn_n);
+        ccall((:RSA_free, OpenSSL_jll.libcrypto), Cvoid,
+            (Ptr{Cvoid},), rsa);
+        error("Failed to create bn_e"))
+
+        success = false
+        try
+            ok = ccall((:RSA_set0_key, OpenSSL_jll.libcrypto), Cint,
+                (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}),
+                rsa, bn_n, bn_e, C_NULL)
+            ok != 1 && error("Failed to set RSA key")
+
+            ret = ccall((:RSA_verify, OpenSSL_jll.libcrypto), Cint,
+                (Cint, Ptr{UInt8}, Cuint, Ptr{UInt8}, Cuint, Ptr{Cvoid}),
+                NID_sha256,
+                pointer(digest), Cuint(length(digest)),
+                pointer(sig), Cuint(length(sig)),
+                rsa)
+            success = (ret == 1)
+        finally
+            ccall((:RSA_free, OpenSSL_jll.libcrypto), Cvoid,
+                (Ptr{Cvoid},), rsa)
+        end
+    end
+    return success
 end
