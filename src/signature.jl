@@ -61,9 +61,6 @@ function verify_webauthn_signature(key::RSAPublicKey, ad::Vector{UInt8},
     verify_rsa_signature_raw_ne(key.n, key.e, msg_hash, sig)
 end
 
-"""
-Avoid this too?
-"""
 function verify_webauthn_signature(pubkey_pem::AbstractString,
     ad::Vector{UInt8}, cdj::Vector{UInt8}, sig::Vector{UInt8})::Bool
 

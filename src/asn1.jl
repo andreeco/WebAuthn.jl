@@ -3,7 +3,7 @@ This code must be reviewed! Testing is not done properly yet (RFC)
 and I must check it myself too (more).
 """
 
-module ASN1
+module AbstractSyntaxNotationOne
 
 """
     EXTERNAL_DER_VALIDATION
@@ -122,7 +122,7 @@ export DERTree, decode, encode, decode_pem, encode_pem,
 
 using Base64
 
-using ..ASN1
+using ..AbstractSyntaxNotationOne
 
 const UNIVERSAL = 0     # 0b00 Universal class
 const APPLICATION = 1   # 0b01 Application class
@@ -272,8 +272,8 @@ function decode(data::Vector{UInt8})
     if pos <= length(data)
         throw(ErrorException("Extra data after root element"))
     end
-    if ASN1.EXTERNAL_DER_VALIDATION[]
-        ASN1.DERFirewall._verify_der_strict(data)
+    if AbstractSyntaxNotationOne.EXTERNAL_DER_VALIDATION[]
+        AbstractSyntaxNotationOne.DERFirewall._verify_der_strict(data)
     end
     return tree
 end
@@ -327,8 +327,8 @@ end
 
 function encode(tree::DERTree)
     bytes = _encode_one(tree)
-    if ASN1.EXTERNAL_DER_VALIDATION[]
-        ASN1.DERFirewall._verify_der_strict(bytes)
+    if AbstractSyntaxNotationOne.EXTERNAL_DER_VALIDATION[]
+        AbstractSyntaxNotationOne.DERFirewall._verify_der_strict(bytes)
     end
     return bytes
 end
