@@ -87,16 +87,46 @@ See also: [`EC2PublicKey`](@ref), [`RSAPublicKey`](@ref) and
 [`OKPPublicKey`](@ref).
 """
 function cose_key_parse(cose::Dict)
-    # TODO: Use OpenSSL for DER/PEM and validate key field lengths.
     kty = cose[1]
     if kty == 2
-        EC2PublicKey(cose[-2], cose[-3], cose[3], cose[-1])
+        x = cose[-2]; y = cose[-3]; alg = cose[3]; crv = cose[-1]
+        key = EC2PublicKey(x, y, alg, crv)
+
+        # OpenSSL validation: try to serialize and load
+        pem = cose_key_to_pem(key)
+        try
+            # Try to load via OpenSSL, error if invalid
+            parse_ec_pem_xy(pem)
+        catch e
+            error("Invalid EC2 public key (OpenSSL could not parse): $e")
+        end
+        return key
+
     elseif kty == 3
-        RSAPublicKey(cose[-1], cose[-2], cose[3])
+        n = cose[-1]; e = cose[-2]; alg = cose[3]
+        key = RSAPublicKey(n, e, alg)
+
+        pem = cose_key_to_pem(key)
+        try
+            parse_rsa_pem_ne(pem)
+        catch e
+            error("Invalid RSA public key (OpenSSL could not parse): $e")
+        end
+        return key
+
     elseif kty == 1
         crv, alg, x = cose[-1], cose[3], cose[-2]
         crv == 6 && alg == -8 || error("Only Ed25519 (crv=6, alg=-8) supported")
-        OKPPublicKey(x, alg, crv)
+        key = OKPPublicKey(x, alg, crv)
+
+        pem = cose_key_to_pem(key)
+        try
+            parse_ed25519_pem_x(pem)
+        catch e
+            error("Invalid Ed25519 public key (OpenSSL could not parse): $e")
+        end
+        return key
+
     else
         error("Unsupported COSE kty: $kty")
     end

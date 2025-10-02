@@ -71,17 +71,22 @@ using Test, WebAuthn, CBOR
 
     # ---- 6. CREDENTIALID TEST: parse from authData
     @testset "credentialId length from parsing authData" begin
-        # Forge an attested authData with a credId of arbitrary size within spec
-        fake_pk = CBOR.encode(Dict(1 => 2, 3 => -7, -1 => 1, -2 => rand(
-                UInt8, 32), -3 => rand(UInt8, 32)))
+        pem = load_pem("ec_p256_spki")
+        x, y = parse_ec_pem_xy(pem)
+
+        # Create a valid CBOR EC2 COSE key encoding
+        fake_pk = CBOR.encode(Dict(1 => 2, 3 => -7, -1 => 1, -2 => x, -3 => y))
+
         cred_id = rand(UInt8, 32)
-        credlen = [UInt8((length(cred_id) >> 8) & 0xff), UInt8(
-            length(cred_id) & 0xff)]
+        credlen = [UInt8((length(cred_id) >> 8) & 0xff), 
+        UInt8(length(cred_id) & 0xff)]
         aaguid = zeros(UInt8, 16)
         prefix = rand(UInt8, 37)
         authData = vcat(prefix, aaguid, credlen, cred_id, fake_pk)
+
         key = parse_credential_public_key(authData)
         @test key isa WebAuthnPublicKey
+
         # To check the credId length, extract it manually:
         offset = 37 + 16
         idlen = (authData[offset+1] << 8) | authData[offset+2]
