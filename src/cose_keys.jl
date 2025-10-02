@@ -125,55 +125,111 @@ See also: [`cose_key_parse`](@ref).
 """
 function cose_key_to_pem(key::WebAuthnPublicKey) end
 
-# TODO: Use OpenSSL for DER/PEM and validate key field lengths.
 function cose_key_to_pem(key::EC2PublicKey)
-    pub = vcat(UInt8(0x04), key.x, key.y)
-    asn1 = [0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE,
-        0x3D, 0x02, 0x01, 0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03,
-        0x01, 0x07, 0x03, 0x42, 0x00]
-    der = vcat(asn1, pub)
-    enc = base64encode(der)
-    return "-----BEGIN PUBLIC KEY-----\n" *
-           join([enc[i:min(i + 63, end)] for i = 1:64:length(enc)], "\n") *
-           "\n-----END PUBLIC KEY-----\n"
+    length(key.x) == 32 || error("EC2 x must be 32 bytes")
+    length(key.y) == 32 || error("EC2 y must be 32 bytes")
+
+    x = key.x
+    y = key.y
+    NID_P256 = 415
+
+    ec_key = ccall((:EC_KEY_new_by_curve_name, OpenSSL_jll.libcrypto),
+                   Ptr{Cvoid}, (Cint,), NID_P256)
+    ec_key == C_NULL && error("OpenSSL: Failed to allocate EC_KEY")
+
+    pk = nothing
+    GC.@preserve x y begin
+        bn_x = ccall((:BN_bin2bn, OpenSSL_jll.libcrypto), Ptr{Cvoid},
+            (Ptr{UInt8}, Cint, Ptr{Cvoid}), pointer(x), 32, C_NULL)
+        bn_y = ccall((:BN_bin2bn, OpenSSL_jll.libcrypto), Ptr{Cvoid},
+            (Ptr{UInt8}, Cint, Ptr{Cvoid}), pointer(y), 32, C_NULL)
+        try
+            ok = ccall((:EC_KEY_set_public_key_affine_coordinates, 
+            OpenSSL_jll.libcrypto),
+                Cint, (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}),
+                ec_key, bn_x, bn_y)
+            ok == 1 || error("OpenSSL: Failed to set EC_KEY coordinates")
+            evp_key = ccall((:EVP_PKEY_new, OpenSSL_jll.libcrypto), 
+            Ptr{Cvoid}, ())
+            ccall((:EVP_PKEY_set1_EC_KEY, OpenSSL_jll.libcrypto), Cint,
+                (Ptr{Cvoid}, Ptr{Cvoid}), evp_key, ec_key)
+            buf_ptr = Ref{Ptr{UInt8}}()
+            len = ccall((:i2d_PUBKEY, OpenSSL_jll.libcrypto), Cint,
+                        (Ptr{Cvoid}, Ref{Ptr{UInt8}}), evp_key, buf_ptr)
+            len <= 0 && error("OpenSSL: Could not encode EC public key")
+            der = unsafe_wrap(Array, buf_ptr[], len; own=true)
+            pk = der_to_pem(der, "PUBLIC KEY")
+            ccall((:EVP_PKEY_free, OpenSSL_jll.libcrypto), Cvoid, 
+            (Ptr{Cvoid},), evp_key)
+        finally
+            ccall((:BN_free, OpenSSL_jll.libcrypto), Cvoid, (Ptr{Cvoid},), bn_x)
+            ccall((:BN_free, OpenSSL_jll.libcrypto), Cvoid, (Ptr{Cvoid},), bn_y)
+            ccall((:EC_KEY_free, OpenSSL_jll.libcrypto), Cvoid, 
+            (Ptr{Cvoid},), ec_key)
+        end
+    end
+    return pk
 end
 
-# TODO: Use OpenSSL for DER/PEM and validate key field lengths.
 function cose_key_to_pem(key::RSAPublicKey)
-    function asn1_len(n)
-        n < 128 ? UInt8[n] : vcat(UInt8(0x80 + length(digits(n, base=256))),
-            UInt8.(reverse(digits(n, base=256))))
+    # Validate key field lengths (minimal)
+    isempty(key.n) && error("RSA modulus (n) must not be empty")
+    isempty(key.e) && error("RSA exponent (e) must not be empty")
+    # Create BIGNUMs for n, e
+    rsa = ccall((:RSA_new, OpenSSL_jll.libcrypto), Ptr{Cvoid}, ())
+    bn_n = ccall((:BN_bin2bn, OpenSSL_jll.libcrypto), Ptr{Cvoid},
+        (Ptr{UInt8}, Cint, Ptr{Cvoid}), pointer(key.n), length(key.n), C_NULL)
+    bn_e = ccall((:BN_bin2bn, OpenSSL_jll.libcrypto), Ptr{Cvoid},
+        (Ptr{UInt8}, Cint, Ptr{Cvoid}), pointer(key.e), length(key.e), C_NULL)
+    try
+        ok = ccall((:RSA_set0_key, OpenSSL_jll.libcrypto), Cint,
+            (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}),
+            rsa, bn_n, bn_e, C_NULL)
+        ok == 1 || error("OpenSSL: Failed RSA_set0_key")
+        bn_n = bn_e = C_NULL # Ownership to RSA
+
+        # Wrap in EVP_PKEY for DER export
+        evp_key = ccall((:EVP_PKEY_new, OpenSSL_jll.libcrypto), Ptr{Cvoid}, ())
+        ccall((:EVP_PKEY_set1_RSA, OpenSSL_jll.libcrypto), Cint,
+            (Ptr{Cvoid}, Ptr{Cvoid}), evp_key, rsa)
+        buf_ptr = Ref{Ptr{UInt8}}()
+        len = ccall((:i2d_PUBKEY, OpenSSL_jll.libcrypto), Cint,
+            (Ptr{Cvoid}, Ref{Ptr{UInt8}}), evp_key, buf_ptr)
+        len <= 0 && error("OpenSSL: Could not encode RSA public key")
+        der = unsafe_wrap(Array, buf_ptr[], len; own=true)
+        pem = der_to_pem(der, "PUBLIC KEY")
+        # Free
+        ccall((:EVP_PKEY_free, OpenSSL_jll.libcrypto), Cvoid, 
+        (Ptr{Cvoid},), evp_key)
+        return pem
+    finally
+        ccall((:RSA_free, OpenSSL_jll.libcrypto), Cvoid, (Ptr{Cvoid},), rsa)
     end
-    function der_integer(bytes)
-        b = collect(bytes)
-        b = isempty(b) ? UInt8[0] : b[1] > 0x7f ? vcat(0x00, b) : b
-        vcat(0x02, asn1_len(length(b)), b)
-    end
-    pkseq_inner = vcat(der_integer(key.n), der_integer(key.e))
-    pkseq = vcat(0x30, asn1_len(length(pkseq_inner)), pkseq_inner)
-    pk_bs = vcat(0x03, asn1_len(length(pkseq) + 1), 0x00, pkseq)
-    algid = UInt8[0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86,
-        0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00]
-    body = vcat(algid, pk_bs)
-    der = vcat(0x30, asn1_len(length(body)), body)
-    enc = base64encode(der)
-    return "-----BEGIN PUBLIC KEY-----\n" *
-           join([enc[i:min(i + 63, end)] for i = 1:64:length(enc)], "\n") *
-           "\n-----END PUBLIC KEY-----\n"
 end
 
-# TODO: Use OpenSSL for DER/PEM and validate key field lengths.
 function cose_key_to_pem(key::OKPPublicKey)
-    algid = UInt8[0x30, 0x05, 0x06, 0x03, 0x2B, 0x65, 0x70]
-    L = 1 + length(key.x)
-    bitstr = vcat(0x03, L < 128 ? UInt8[L] : UInt8[0x81, L], 0x00, key.x)
-    der = vcat(0x30, length(algid) + length(bitstr) < 128 ?
-                     UInt8[length(algid)+length(bitstr)] : UInt8[0x81,
-            length(algid)+length(bitstr)], algid, bitstr)
-    enc = base64encode(der)
-    return "-----BEGIN PUBLIC KEY-----\n" *
-           join([enc[i:min(i + 63, end)] for i = 1:64:length(enc)], "\n") *
-           "\n-----END PUBLIC KEY-----\n"
+    length(key.x) == 32 || error("Ed25519 x must be 32 bytes")
+    # Create EVP_PKEY* from raw Ed25519 public key
+    evp_key = ccall((:EVP_PKEY_new_raw_public_key, OpenSSL_jll.libcrypto),
+                    Ptr{Cvoid},
+                    (Cint, Ptr{Cvoid}, Ptr{UInt8}, Csize_t),
+                    1087, # NID_ED25519
+                    C_NULL, # no engine
+                    pointer(key.x), Csize_t(length(key.x)))
+    evp_key == C_NULL && error("OpenSSL: Failed to create Ed25519 key")
+    pem = nothing
+    try
+        buf_ptr = Ref{Ptr{UInt8}}()
+        len = ccall((:i2d_PUBKEY, OpenSSL_jll.libcrypto), Cint,
+            (Ptr{Cvoid}, Ref{Ptr{UInt8}}), evp_key, buf_ptr)
+        len <= 0 && error("OpenSSL: Could not encode Ed25519 public key")
+        der = unsafe_wrap(Array, buf_ptr[], len; own=true)
+        pem = der_to_pem(der, "PUBLIC KEY")
+    finally
+        ccall((:EVP_PKEY_free, OpenSSL_jll.libcrypto), Cvoid,
+              (Ptr{Cvoid},), evp_key)
+    end
+    return pem
 end
 
 """
