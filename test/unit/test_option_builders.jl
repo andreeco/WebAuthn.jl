@@ -9,6 +9,14 @@
 #   - Challenge direct injection/tested
 using Test, WebAuthn
 
+# SPEC_ID: §5.4.3-PublicKeyCredentialUserEntity-id
+# SPEC_ID: §5.4.4-AuthenticatorSelectionCriteria
+# SPEC_ID: §5.4.5-AuthenticatorAttachment-enum
+# SPEC_ID: §5.4.6-ResidentKeyRequirement-enum
+# SPEC_ID: §5.4.7-AttestationConveyancePreference-enum
+# SPEC_ID: §5.4.3-PublicKeyCredentialUserEntity-displayName
+# SPEC_ID: §5.1.3-Create-UserID-Length
+# SPEC_ID: §5.1.3-Create-ExcludeCredentials
 @testset "registration_options content" begin
     opts = registration_options("example.com", "Acme", UInt8[0x22, 0x33],
         "bobby", "Bob Display";
@@ -42,6 +50,7 @@ using Test, WebAuthn
     @test asel["userVerification"] == "preferred"
 end
 
+# SPEC_ID: §5.5-PublicKeyCredentialRequestOptions-allowCredentials
 @testset "authentication_options content" begin
     # Unspecified challenge: random string, b64url, correct length
     opts = authentication_options("example.com";
@@ -57,6 +66,8 @@ end
     @test opts["timeout"] == 60000
 end
 
+# SPEC_ID: §5.4.3-PublicKeyCredentialUserEntity-id
+# SPEC_ID: §13.4.3-Cryptographic-Challenges
 @testset "registration_options: default challenge uniqueness/entropy" begin
     chal1 = registration_options("ex", "n", 1, "a", "b")["challenge"]
     chal2 = registration_options("ex", "n", 2, "a", "b")["challenge"]
@@ -64,12 +75,14 @@ end
     @test length(base64urldecode(chal1)) >= 16
 end
 
+# SPEC_ID: §5.5-PublicKeyCredentialRequestOptions-allowCredentials
 @testset "authentication_options: challenge injection" begin
     opts = authentication_options("site.com"; challenge="foobar",
         allow_credential_ids=[])
     @test opts["challenge"] == "foobar"
 end
 
+# SPEC_ID: §5.4.3-PublicKeyCredentialUserEntity-id
 @testset "registration_options: minimal user id formats" begin
     # id as string
     opts1 = registration_options("foo.com", "Bar", "abcxyz", "n", "n")
@@ -80,8 +93,10 @@ end
     @test base64urldecode(opts2["user"]["id"]) == UInt8[1, 2, 3, 4]
 end
 
+# SPEC_ID: §5.1.3-Create-UserID-Length
+# SPEC_ID: §5.4.3-PublicKeyCredentialUserEntity-id
 @testset "registration_options: negative/wrong" begin
-    # Invalid: missing user_name field (should error or fill default, 
+    # Invalid: missing user_name field (should error or fill default,
     # depending on your code)
     try
         registration_options("foo.com", "Bar", 123, "", "Display")

@@ -75,6 +75,10 @@ function normalize_for_crypto(integer::Vector{UInt8})
     integer[2:end] : integer
 end
 
+# SPEC_ID: §5.8.5-COSEAlgorithmIdentifier
+# SPEC_ID: §3-COSE-EC2-crv-x-y-Length
+# SPEC_ID: §3-COSE-RSAPublicKey-Fields
+# SPEC_ID: §3-COSE-OKP-Ed25519-crv-alg-x
 @testset "ASN.1 Native vs OpenSSL PEM cross-tests" begin
     # ---- EC (P-256) ----
     @testset "EC P-256 SPKI" begin
@@ -84,7 +88,6 @@ end
         @test x_native == x_ref
         @test y_native == y_ref
     end
-
 
     @testset "RSA SPKI" begin
         pem = load_pem("rsa_spki")
@@ -102,11 +105,10 @@ end
     end
 end
 
-# Edge-case: malformed or truncated PEM (optional)
+# SPEC_ID: §5.8.5-COSEAlgorithmIdentifier
 @testset "ASN.1 Cross - Malformed PEMs" begin
     badpem = "-----BEGIN PUBLIC KEY-----\nZZZZZZZ\n-----END PUBLIC KEY-----"
     @test_throws Exception parse_ec_pem_xy_native(badpem)
 end
-
 
 AbstractSyntaxNotationOne.EXTERNAL_DER_VALIDATION[] = true

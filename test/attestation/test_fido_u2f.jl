@@ -8,7 +8,7 @@
 #   - Should reject malformed, incomplete, or tampered U2F objects
 using Test, WebAuthn
 
-
+# SPEC_ID: §8.6-fido-u2f-Format-Compatibility
 @testset "FIDO2/U2F Interop Vector: Registration+Authentication" begin
     # Registration vector from your REG VECTOR FIELD EXTRACT:
     attestationObject = "o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YVkBA0mWDeWIDoxod\
@@ -54,7 +54,8 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEQw0YYEogDOMTXChqgUD+8lZL79ir
         WebAuthn.base64urldecode(signature2)) == true
 end
 
+ # SPEC_ID: §8.6-fido-u2f-Format-Compatibility
 @testset "FIDO2/U2F legacy (fmt:fido-u2f) interop/attestation" begin
-    # This package does not support pure U2F attestation 
+    # This package does not support pure U2F attestation
     @test_broken false  # Deliberately always broken.
 end

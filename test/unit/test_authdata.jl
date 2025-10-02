@@ -8,6 +8,8 @@
 #   - Malformed/short/wrong flags/fuzzed cases → error/edge checks
 using Test, WebAuthn, CBOR
 
+# SPEC_ID: §6.1-AuthenticatorData-Structure
+# SPEC_ID: §7.1-Registration-Extract-PublicKey
 @testset "authenticatorData parsing" begin
     # Use a real, valid EC2 key
     pem = load_pem("ec_p256_spki")

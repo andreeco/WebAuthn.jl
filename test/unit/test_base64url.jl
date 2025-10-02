@@ -15,6 +15,8 @@
 #
 using Test, WebAuthn
 
+# SPEC_ID: §3-Base64url-Encoding
+# SPEC_ID: §3-Base64url-Decoding-Invalid
 @testset "Base64url RFC4648 vectors" begin
     # Section 10 of RFC 4648, base64url encoding (no '=')
     @test base64urlencode(UInt8[]) == ""
@@ -39,6 +41,8 @@ using Test, WebAuthn
     @test base64urldecode("Zm9vYmFy") == [0x66, 0x6f, 0x6f, 0x62, 0x61, 0x72]
 end
 
+# SPEC_ID: §3-Base64url-Encoding
+# SPEC_ID: §3-Base64url-Decoding-Invalid
 @testset "Base64url roundtrip (random and edge)" begin
     for len in (0, 1, 2, 3, 10, 32, 100)
         b = rand(UInt8, len)
@@ -51,6 +55,7 @@ end
     @test WebAuthn.base64urldecode("AQIDBA") == UInt8[1, 2, 3, 4]
 end
 
+# SPEC_ID: §3-Base64url-Decoding-Invalid
 @testset "Base64url decoder padding acceptance" begin
     # These must all decode fine (padding is allowed by decoder)
     # no padding
@@ -61,6 +66,7 @@ end
     @test base64urldecode("Zm9vYg") == [0x66, 0x6f, 0x6f, 0x62]
 end
 
+# SPEC_ID: §3-Base64url-Decoding-Invalid
 @testset "Base64url decode - illegal chars and excessive pad" begin
     # Tests that MUST fail (raise error)
     # $ not allowed
@@ -75,6 +81,7 @@ end
     @test_throws ArgumentError base64urldecode("=")
 end
 
+# SPEC_ID: §3-Base64url-Decoding-Invalid
 @testset "Base64url decode - malformed length" begin
     # 1-char, invalid
     @test_throws ArgumentError base64urldecode("Z")
@@ -84,6 +91,7 @@ end
     @test base64urldecode("Zg") == [0x66]
 end
 
+# SPEC_ID: §3-Base64url-Decoding-Invalid
 @testset "Base64url decode - nonalphabet/CRLF" begin
     @test_throws ArgumentError base64urldecode("Zm9v\r")
     @test_throws ArgumentError base64urldecode("Zm9v\n")

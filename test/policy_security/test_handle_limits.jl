@@ -7,6 +7,9 @@
 #   - Accept/reject based on length/content
 using Test, WebAuthn, CBOR
 
+# SPEC_ID: §5.4.3-PublicKeyCredentialUserEntity-id
+# SPEC_ID: §14.6.1-UserHandle-No-PII
+# SPEC_ID: §6.5.1-AttestedCredentialData
 @testset "user.id and credentialId length/integrity" begin
     # Rule: 1-64 bytes, opaque. Should not be PII, but spec can't strictly 
     # enforce content.

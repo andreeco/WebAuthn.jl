@@ -29,6 +29,9 @@ function rpIdHash_valid(authData::Vector{UInt8}, rp_id::String)
     return got == want
 end
 
+# SPEC_ID: §6.1-rpIdHash
+# SPEC_ID: §7.1-Registration-Verify-rpIdHash
+# SPEC_ID: §7.2-Authentication-Verify-rpIdHash
 @testset "rpIdHash Enforcement" begin
     # 1. Pass: correct rpIdHash present
     rp_id = "example.com"
@@ -75,6 +78,9 @@ function enforce_rpIdHash(authData::Vector{UInt8}, rp_id::String)
     (expected SHA256($rp_id))"))
 end
 
+# SPEC_ID: §6.1-rpIdHash
+# SPEC_ID: §7.1-Registration-Verify-rpIdHash
+# SPEC_ID: §7.2-Authentication-Verify-rpIdHash
 @testset "rpIdHash enforcement with error" begin
     rp_id = "demo.test"
     ad = make_authdata(rp_id)

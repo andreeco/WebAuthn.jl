@@ -22,6 +22,7 @@ function signcount_is_valid(old::Integer, new::Integer)
     old == 0 ? true : ((new == 0) ? true : (new > old))
 end
 
+# SPEC_ID: §6.1.1-SignatureCounter-Detection
 @testset "signCount/Clone Detector" begin
     # First-time use (zero counter is always okay)
     @test signcount_is_valid(0, 0)

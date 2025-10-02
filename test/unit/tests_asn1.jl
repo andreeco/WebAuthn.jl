@@ -1,3 +1,5 @@
+# No SPEC_ID here!!! It tests an testing helper
+
 using Test, Base64, WebAuthn, .AbstractSyntaxNotationOne
 
 AbstractSyntaxNotationOne.EXTERNAL_DER_VALIDATION[] = false

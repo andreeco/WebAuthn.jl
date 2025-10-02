@@ -9,6 +9,8 @@
 
 using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
 
+# SPEC_ID: §5.2.2-AuthenticatorAssertionResponse
+# SPEC_ID: §7.2-Authentication-Verify-Signature
 @testset "Assertion/Authentication Happy Path: Ed25519/OKP" begin
     pk = Vector{UInt8}(undef, Sodium.crypto_sign_PUBLICKEYBYTES)
     sk = Vector{UInt8}(undef, Sodium.crypto_sign_SECRETKEYBYTES)
@@ -31,6 +33,7 @@ using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
     @test !verify_webauthn_signature(key, authData, clientDataJSON, bad)
 end
 
+# SPEC_ID: §7.2-Authentication-Verify-Signature
 @testset "Assertion/Authentication Happy Path: EC2/ES256 (fixed)" begin
     pem = """
 -----BEGIN PUBLIC KEY-----
@@ -58,6 +61,7 @@ C82+y/BQk/Y32NTnlzVgVWpw75IxyiQuucw0QJbzN+zC8r2IIRek+HDPnA==
     @test !verify_webauthn_signature(pem, badauth, clientDataJSON, sigDER)
 end
 
+# SPEC_ID: §7.2-Authentication-Verify-Signature
 @testset "Assertion/Authentication Happy Path: RSA/RS256 (fixed)" begin
     pem = """
 -----BEGIN PUBLIC KEY-----
@@ -92,7 +96,6 @@ cwIDAQAB
         10, 203, 23, 107, 195, 16, 162, 195, 240, 78, 214, 78, 165, 99, 78,
         62, 159, 201, 181, 55, 249, 107, 169, 217, 239, 63
     ]
-
     @test verify_webauthn_signature(pem, authData, clientDataJSON, sig_der)
     badsig = copy(sig_der)
     badsig[10] ⊻= 0xFF
@@ -102,6 +105,7 @@ cwIDAQAB
     @test !verify_webauthn_signature(pem, badauth, clientDataJSON, sig_der)
 end
 
+# SPEC_ID: §7.1-Registration-Verify-Challenge
 @testset "End-to-end challenge check" begin
     challenge = generate_challenge(16)
     cd = JSON3.write(Dict("challenge" => challenge,
@@ -110,6 +114,7 @@ end
     @test verify_challenge(b64cd, challenge)
 end
 
+# SPEC_ID: §7.2-Authentication-Verify-Signature
 @testset "OKP/Ed25519 end-to-end" begin
     pk = Vector{UInt8}(undef, Sodium.crypto_sign_PUBLICKEYBYTES)
     sk = Vector{UInt8}(undef, Sodium.crypto_sign_SECRETKEYBYTES)

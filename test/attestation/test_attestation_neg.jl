@@ -8,6 +8,9 @@
 
 using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
 
+# SPEC_ID: §8.2-packed-Format-RequiredFields
+# SPEC_ID: §8-Unknown-Attestation-Format
+# SPEC_ID: §6.5.2-AttestationStatementFormats-Structure
 @testset "Attestation Negative/Edge Cases" begin
     # -- 1. Corrupted signature (alg mismatch, random bytes, tampered) --
     cdj = JSON3.write(Dict("type" => "webauthn.create",
@@ -90,7 +93,7 @@ using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
     @test !verify_attestation_object(b64_bad, cdj_b)
 end
 
-
+# SPEC_ID: §8.2-packed-Format-RequiredFields
 @testset "WebAuthn packed self-attestation alg/key mismatch" begin
     cdj = JSON3.write(Dict("type" => "webauthn!create", "challenge" => "abc"))
     cdj_b = Vector{UInt8}(cdj)

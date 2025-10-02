@@ -7,6 +7,8 @@
 #   - Ignores/throws on duplicated map keys, malformed/truncated buffers
 using Test, CBOR, Test
 
+# SPEC_ID: §3-CBOR-Canonical-Encode
+# SPEC_ID: §3-CBOR-Reject-Non-Canonical
 @testset "CBOR roundtrip and basic values" begin
     @test CBOR.decode(CBOR.encode(42)) == 42
     @test CBOR.decode(CBOR.encode(-100)) == -100
@@ -19,6 +21,7 @@ using Test, CBOR, Test
     @test CBOR.decode(b) == x
 end
 
+# SPEC_ID: §3-CBOR-Canonical-Encode
 @testset "CBOR: RFC Appendix A WebAuthn CTAP2 map" begin
     example = Dict(1 => 2, 3 => 4)
     bytes = UInt8[0xA2, 0x01, 0x02, 0x03, 0x04]
@@ -29,6 +32,7 @@ end
     @test CBOR.decode(ex_bytes) == arr
 end
 
+# SPEC_ID: §3-CBOR-Canonical-Encode
 @testset "CBOR: float, null, true, false, undefined" begin
     for (val, hex) in (
         (0.0, [0xf9, 0x00, 0x00]),
@@ -49,6 +53,7 @@ end
     end
 end
 
+# SPEC_ID: §3-CBOR-Reject-Non-Canonical
 @testset "CBOR: malformed/truncated detection" begin
     # Needs 2 more bytes
     @test_throws Exception CBOR.decode(UInt8[0x19])
@@ -64,6 +69,7 @@ end
     @test_throws Exception CBOR.decode(UInt8[0x9f, 0x01, 0x02])
 end
 
+# SPEC_ID: §3-CBOR-Reject-Duplicate-Keys
 @testset "CBOR: duplicate keys not allowed (spec: invalid/ambiguous)" begin
     bad_cbor = UInt8[0xa2, 0x01, 0x02, 0x01, 0x03] # {1:2, 1:3}
     try
@@ -75,6 +81,7 @@ end
     end
 end
 
+# SPEC_ID: §3-CBOR-Canonical-Encode
 @testset "CBOR: indefinite-length string parsing" begin
     # Example: 0x5f 0x43 01 02 03 0x41 04 0xff == bstr(0x01020304)
     bytes = UInt8[0x5f, 0x43, 0x01, 0x02, 0x03, 0x41, 0x04, 0xff]

@@ -11,6 +11,9 @@
 #   - Not reusable; nonces are unpredictable
 using Test, WebAuthn
 
+# SPEC_ID: §13.4.3-Cryptographic-Challenges
+# SPEC_ID: §7.1-Registration-Verify-Challenge
+# SPEC_ID: §5.4.3-PublicKeyCredentialUserEntity-id
 @testset "Challenge generation" begin
     nbytes = 32  # try both 16 and 32 for extra coverage
     chals = Set{String}()
@@ -20,12 +23,13 @@ using Test, WebAuthn
     for i = 1:iterations
         c = generate_challenge(nbytes)
         # Should not have already been seen
+        # SPEC_ID: §13.4.3-Cryptographic-Challenges
         @test !(c in chals)
         push!(chals, c)
 
-        # Length: base64url expands every 3 bytes into 4 chars, 
+        # Length: base64url expands every 3 bytes into 4 chars,
         # then removes padding
-        minlen = ceil(Int, nbytes * 8 / 6 * 0.99)  # this is slack, 
+        minlen = ceil(Int, nbytes * 8 / 6 * 0.99)  # this is slack,
         # base64url may round up
         @test length(c) >= minlen
         @test length(c) ≤ nbytes * 2  # b64url never more than 2x input size
@@ -52,12 +56,14 @@ using Test, WebAuthn
     end
 end
 
+# SPEC_ID: §13.4.3-Cryptographic-Challenges
 @testset "generate_challenge returns different values each call" begin
     c1 = generate_challenge()
     c2 = generate_challenge()
     @test c1 != c2
 end
 
+# SPEC_ID: §13.4.3-Cryptographic-Challenges
 @testset "Challenge length and encoding exact" begin
     n = 32
     c = generate_challenge(n)
@@ -66,6 +72,7 @@ end
     @test 42 ≤ length(c) ≤ 44
 end
 
+# SPEC_ID: §13.4.3-Cryptographic-Challenges
 @testset "Challenge output can be decoded" begin
     n = 32
     c = generate_challenge(n)

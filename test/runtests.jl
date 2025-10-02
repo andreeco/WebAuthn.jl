@@ -1,5 +1,9 @@
 using Test, WebAuthn, CBOR, Dates, JSON3, SHA, Sodium, Logging, Base64
 
+@warn "AI involvement in test coverage may deceive about how 
+thoroughly the code is tested. Human review wanted and needed!"
+
+
 include("helpers/asn1.jl")
 
 const TESTVEC_DIR = joinpath(dirname(pathof(WebAuthn)),

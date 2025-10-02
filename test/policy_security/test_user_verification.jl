@@ -30,6 +30,10 @@ function make_authdata_with_flags(rp_id::String, flags::UInt8)
     )
 end
 
+# SPEC_ID: §6.1-Flags-UP
+# SPEC_ID: §6.1-Flags-UV
+# SPEC_ID: §7.2-Authentication-Verify-UP-Bit
+# SPEC_ID: §7.2-Authentication-Verify-UV-Bit-if-Required
 @testset "User Presence/Verification Flags" begin
     rp_id = "login.example"
     signCount = 10
@@ -59,7 +63,7 @@ end
         flags = get_flags(authData)
         is_up(flags) || throw(ArgumentError("User Presence (UP) flag not set"))
         if require_uv
-            is_uv(flags) || throw(ArgumentError("User Verification (UV) flag 
+            is_uv(flags) || throw(ArgumentError("User Verification (UV) flag
             required but not set"))
         end
         return true

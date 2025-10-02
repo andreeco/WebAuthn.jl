@@ -85,7 +85,9 @@ eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwib3JpZ2luIjoiaHR0cHM6Ly9leGFtcGxlLmNvbSIsImN\
 oYWxsZW5nZSI6IlNPTUVCNjRDSEFMTEVOR0UiLCJjcm9zc09yaWdpbiI6ZmFsc2V9\
 """
 # ---------------- HAPPY PATH TESTS ----------------
-
+# SPEC_ID: §8.2-packed-Format-RequiredFields
+# SPEC_ID: §8.7-none-Attestation-Format
+# SPEC_ID: §7.1-Registration-Attestation-Verification
 @testset "Attestation: happy path variants" begin
     @test verify_attestation_object(att_none,
         base64urldecode(cdj_b64_none)) == true
@@ -122,7 +124,8 @@ oYWxsZW5nZSI6IlNPTUVCNjRDSEFMTEVOR0UiLCJjcm9zc09yaWdpbiI6ZmFsc2V9\
 end
 
 # ---------------- CBOR/COSE PARSING ----------------
-
+# SPEC_ID: §7.1-Registration-Extract-PublicKey
+# SPEC_ID: §5.8.5-COSEAlgorithmIdentifier
 @testset "Attestation: COSE key extraction" begin
     for attobj_b64 in (att_none, att_packed_self, att_packed_x5c)
         attobj = WebAuthn.parse_attestation_object(attobj_b64)
@@ -134,6 +137,8 @@ end
 
 # ---------------- NEGATIVE CASES ----------------
 
+# SPEC_ID: §8.2-packed-Format-RequiredFields
+# SPEC_ID: §8.7-none-Attestation-Format
 @testset "Attestation: negative and mutant cases" begin
     # 1) Corrupt signature in packed/self
     b = WebAuthn.base64urldecode(att_packed_self)
@@ -254,6 +259,7 @@ end
         base64urldecode(cdj_b64_self))
 end
 
+# SPEC_ID: §16-TestVectors-In-Continuous-Integration
 @testset "WebAuthn Interop Vectors" begin
     # This vector is from a real Windows10/Chrome credential
     v = Dict(
@@ -383,6 +389,7 @@ end
     @test result == true
 end
 
+# SPEC_ID: §8.2-packed-Format-RequiredFields
 @testset "verify_attestation_packed Ed25519\
 (OKP, alg -8) self-attestation" begin
     # 1. Generate a new Ed25519 keypair

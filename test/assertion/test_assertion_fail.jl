@@ -7,6 +7,10 @@
 # (never ghost success!)
 using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
 
+# SPEC_ID: §7.2-Authentication-Verify-Challenge
+# SPEC_ID: §7.2-Authentication-Verify-Origin
+# SPEC_ID: §7.2-Authentication-Verify-ClientData-Type
+# SPEC_ID: §7.2-Authentication-Verify-Signature
 @testset "Assertion Negative/Fail Cases" begin
     # -- Generate known-good keypair --
     pk = Vector{UInt8}(undef, Sodium.crypto_sign_PUBLICKEYBYTES)
@@ -33,6 +37,7 @@ using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
         length(sign_input), sk) == 0
 
     # -- Asserts: good signature passes --
+    # SPEC_ID: §7.2-Authentication-Verify-Signature
     @test verify_webauthn_signature(key, authData,
         Vector{UInt8}(good_clientData), sig)
 
@@ -42,6 +47,7 @@ using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
         "origin" => rp_origin,
         "type" => "webauthn.get"
     ))
+    # SPEC_ID: §7.2-Authentication-Verify-Challenge
     @test !verify_webauthn_signature(key, authData,
         Vector{UInt8}(tampered_cd), sig)
 
@@ -51,6 +57,7 @@ using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
         "origin" => "https://evil-unit.example",
         "type" => "webauthn.get"
     ))
+    # SPEC_ID: §7.2-Authentication-Verify-Origin
     @test !verify_webauthn_signature(key, authData,
         Vector{UInt8}(tampered_cd2), sig)
 
@@ -60,6 +67,7 @@ using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
         "origin" => rp_origin,
         "type" => "webauthn.create"
     ))
+    # SPEC_ID: §7.2-Authentication-Verify-ClientData-Type
     @test !verify_webauthn_signature(key, authData,
         Vector{UInt8}(cd_wrongtype), sig)
 
@@ -102,6 +110,7 @@ using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
     # Not implemented in this test (depends on RP storage logic)
 end
 
+# SPEC_ID: §7.2-Authentication-Verify-Signature
 @testset "Signature check stub" begin
     pubkey_fake = "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n"
     msg = rand(UInt8, 16)

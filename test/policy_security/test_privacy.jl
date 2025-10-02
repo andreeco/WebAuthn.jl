@@ -8,6 +8,8 @@ using Test
 
 using Test, WebAuthn, Logging
 
+# SPEC_ID: §14.5.1-Registration-Ceremony-Privacy
+# SPEC_ID: §14.6.1-UserHandle-No-PII
 @testset "Privacy Extensions/Logging" begin
     # 1. Capture logs to verify no PII is written
     struct CaptureLogger <: AbstractLogger
@@ -19,7 +21,7 @@ using Test, WebAuthn, Logging
     end
     Logging.min_enabled_level(::CaptureLogger) = Logging.Debug
     function Logging.handle_message(logger::CaptureLogger, level, msg,
-        _mod, group, id, file, line)
+            _mod, group, id, file, line)
         push!(logger.lines, String(msg))
     end
 
@@ -47,7 +49,7 @@ using Test, WebAuthn, Logging
 
     all_logs = join(logger.lines, " ")
     for secret in ("secret@leak.me", "alice@example.com", "priv.com",
-        "piidemo.com", "BOB", "fail.com")
+                   "piidemo.com", "BOB", "fail.com")
         @test !occursin(secret, all_logs)
     end
 

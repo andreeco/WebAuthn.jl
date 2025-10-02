@@ -9,6 +9,8 @@
 
 using Test, WebAuthn, CBOR
 
+# SPEC_ID: §5.8.5-COSEAlgorithmIdentifier
+# SPEC_ID: §3-COSE-EC2-crv-x-y-Length
 @testset "EC2 Good" begin
     cose_b = UInt8[165, 1, 2, 3, 38, 32, 1, 33, 88, 32, 83, 171, 141, 121, 88,
         18, 46, 173, 166, 127, 160, 40, 92, 178, 249, 182, 70, 196, 88, 55, 61, 
@@ -24,6 +26,8 @@ using Test, WebAuthn, CBOR
     @test occursin("BEGIN PUBLIC KEY", pem)
 end
 
+# SPEC_ID: §5.8.5-COSEAlgorithmIdentifier
+# SPEC_ID: §3-COSE-OKP-Ed25519-crv-alg-x
 @testset "OKP Ed25519 Good" begin
     cose_b = UInt8[164, 1, 1, 3, 39, 32, 6, 33, 88, 32, 33, 245, 65, 233, 205,
         194, 180, 45, 83, 65, 7, 159, 184, 66, 190, 92, 78, 231, 70, 224, 98, 
@@ -37,6 +41,8 @@ end
     @test occursin("BEGIN PUBLIC KEY", pem)
 end
 
+# SPEC_ID: §5.8.5-COSEAlgorithmIdentifier
+# SPEC_ID: §3-COSE-RSAPublicKey-Fields
 @testset "RSA Good" begin
     cose_b = UInt8[164, 1, 3, 3, 57, 1, 0, 32, 89, 1, 0, 146, 20, 62, 231, 79,
         230, 167, 60, 82, 190, 110, 32, 62, 31, 29, 38, 224, 243, 166, 241, 180,
@@ -63,6 +69,7 @@ end
     @test occursin("BEGIN PUBLIC KEY", pem)
 end
 
+# SPEC_ID: §3-COSE-EC2-crv-x-y-Length
 @testset "EC2 BAD (missing y)" begin
     cose_b = UInt8[164, 1, 2, 3, 38, 32, 1, 33, 88, 32, 83, 171, 141, 121, 88,
         18, 46, 173, 166, 127, 160, 40, 92, 178, 249, 182, 70, 196, 88, 55, 61,
@@ -71,6 +78,7 @@ end
     @test_throws Exception cose_key_parse(cose)
 end
 
+# SPEC_ID: §3-CBOR-Canonical-Encode
 @testset "EC2 BAD (Extra unknown field)" begin
     cose_b = UInt8[166, 1, 2, 3, 38, 32, 1, 33, 88, 32, 83, 171, 141, 121, 88,
         18, 46, 173, 166, 127, 160, 40, 92, 178, 249, 182, 70, 196, 88, 55, 61,
@@ -85,6 +93,7 @@ end
     # Or just check the result.
 end
 
+# SPEC_ID: §3-COSE-OKP-Ed25519-crv-alg-x
 @testset "OKP BAD (alg=-999)" begin
     cose_b = UInt8[164, 1, 1, 3, 57, 3, 230, 32, 6, 33, 88, 32, 33, 245, 65,
         233, 205, 194, 180, 45, 83, 65, 7, 159, 184, 66, 190, 92, 78, 231, 70,
@@ -93,6 +102,7 @@ end
     @test_throws Exception cose_key_parse(cose)
 end
 
+# SPEC_ID: §3-CBOR-Reject-Duplicate-Keys
 @testset "MALFORMED CBOR: Duplicate key in COSE_Key" begin
     # This map has -2 key (X) twice; true canonical CBOR must reject 
     # or last-wins, spec: reject.
@@ -124,7 +134,7 @@ end
     end
 end
 
-
+# SPEC_ID: §3-CBOR-Canonical-Encode
 @testset "MALFORMED CBOR: Non-canonical key order in COSE_Key" begin
     # -2 appears before 1 (out of canonical order for CBOR maps)
     cose_noncanon = UInt8[
@@ -156,6 +166,7 @@ end
     end
 end
 
+# SPEC_ID: §3-COSE-EC2-crv-x-y-Length
 @testset "MALFORMED CBOR: Truncated buffer" begin
     # This is a real EC2 COSE_Key, but here's Y is cut off (last 10 bytes 
     # removed)

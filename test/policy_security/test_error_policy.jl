@@ -7,6 +7,10 @@
 # same error
 using Test, WebAuthn, CBOR
 
+# SPEC_ID: §14.1-Deanonymization-Prevention
+# SPEC_ID: §14.5.1-Registration-Ceremony-Privacy
+# SPEC_ID: §14.6.2-Username-Enumeration-Prevention
+# SPEC_ID: §14.6.1-UserHandle-No-PII
 @testset "Spec-mandated Error/Privacy Policy (Library)" begin
     # 1. user.id too short (empty)
     try
