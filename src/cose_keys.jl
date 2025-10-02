@@ -203,19 +203,13 @@ end
 """
     extract_pubkey_pem_from_der(der::Vector{UInt8})::String
 
-Extract a PEM-encoded EC public key from a DER-encoded X.509 certificate.
+Wrap raw DER bytes as PEM, labeling as PUBLIC KEY. 
+
+Does not validate or parse certificate structure.
 
 Searches the provided DER bytes for a known EC OID and extracts the embedded
 public key, returning it as a PEM-encoded `SubjectPublicKeyInfo` suitable for
 cryptographic libraries.
-
-OpenSSL's ASN.1/X.509 parsing APIs do not validate the integrity or structure 
-of the input data prior to parsing. Calling them directly on arbitrary or 
-malformed input can cause process crashes, memory corruption, or security 
-issues. Only use these functions on properly validated certificate data, 
-and never on arbitrary or possibly-truncated buffers. Always fallback 
-gracefully on parse failure, and avoid forwarding unverified input to OpenSSL 
-from adversarial sources.
 
 # Examples
 
