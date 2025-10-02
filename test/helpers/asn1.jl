@@ -3,29 +3,17 @@
 
 Experimental ASN.1 and DER parsing utilities for debugging and test support.
 
-This internal module provides minimal ASN.1/DER parsing and encoding tools, 
-enabling inspection, test vector generation, and roundtrip testing of ASN.1 
-structures (integers, sequences, etc.) in Julia.
+This internal module provides ASN.1/DER parsing and encoding tools for testing.
 
-!!! warning "Not for production cryptography"
-    All cryptographic validation and all WebAuthn signature verification are 
-    strictly enforced via OpenSSL ("DER firewall").  
+!!! warning "Not for production cryptography" 
     This module is **not** intended for use in verifying untrusted inputs in 
-    production or security-sensitive contexts.
-
-### Features
-- Generic ASN.1 and DER structure decode/encode in Julia
-- Useful for debugging and roundtrip test coverage
-- Helps inspect structures when interoperating with OpenSSL primitives
+    production or security-sensitive contexts. It's a helper for testing.
 
 ### Background
 
-Direct ASN.1/DER parsing is infamously hard to do safely—OpenSSL/libtasn1 
-integration, edge-cases, and binary safety are all challenging.  
-For all cryptographic operations, this package **always** delegates to OpenSSL 
-or libsodium for parsing and validation.
+Direct ASN.1/DER parsing is hard doing correctly using ccalls in OpenSSL_jll or
+libtasn1_jll. This module can make development and testing easier.
 """
-
 module AbstractSyntaxNotationOne
 
 """
