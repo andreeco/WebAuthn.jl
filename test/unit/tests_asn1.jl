@@ -1,6 +1,6 @@
-using Test, Base64, WebAuthn, WebAuthn.AbstractSyntaxNotationOne
+using Test, Base64, WebAuthn, .AbstractSyntaxNotationOne
 
-WebAuthn.AbstractSyntaxNotationOne.EXTERNAL_DER_VALIDATION[] = false
+AbstractSyntaxNotationOne.EXTERNAL_DER_VALIDATION[] = false
 
 @testset "ASN.1 DER Roundtrip" begin
     vals = [
@@ -142,18 +142,6 @@ end
     @test a != c
 end
 
-# new 
-
-#const TESTVEC_DIR = joinpath(@__DIR__, "../vectors/der_testvectors")
-const TESTVEC_DIR = joinpath(dirname(pathof(WebAuthn)),
-    "..", "test", "vectors", "der_testvectors")
-
-
-"Helper: Read DER from testvectors directory"
-function load_der(name)
-    read(joinpath(TESTVEC_DIR, "$name.der"))
-end
-
 @testset "DER: Primitive and Constructed" begin
     @test der_to_asn1(
         AbstractSyntaxNotationOne.DER.decode(
@@ -249,7 +237,7 @@ end
         "octetstring", "bitstring", "sequence", "set", "nested",
         "rsa_spki", "ec_p256_spki", "ed25519_spki", "x509_rsa",
         "x509_ca", "x509_ee"]
-        original = read(joinpath(TESTVEC_DIR, "$name.der"))
+        original = load_der(name)
         decoded = AbstractSyntaxNotationOne.DER.decode(original)
         encoded = AbstractSyntaxNotationOne.DER.encode(decoded)
         @test encoded == original
@@ -282,9 +270,9 @@ end
     end
 end
 
-WebAuthn.AbstractSyntaxNotationOne.EXTERNAL_DER_VALIDATION[] = true
+AbstractSyntaxNotationOne.EXTERNAL_DER_VALIDATION[] = true
 
-const DERFIREWALL = WebAuthn.AbstractSyntaxNotationOne.DERFirewall
+const DERFIREWALL = AbstractSyntaxNotationOne.DERFirewall
 
 # This ensures that there is a proven library backing the ASN1 parsing!
 # OpenSSL is not recognizing :EVP_PKEY_id, so this is a good? workaround.
@@ -447,14 +435,14 @@ const DERFIREWALL = WebAuthn.AbstractSyntaxNotationOne.DERFirewall
     # 13. firewall_compare_der API: both (DER) and (DER, tree)
     @testset "firewall_compare_der: DER-only and (DER, tree) mode" begin
         rsa_key = load_der("rsa_spki")
-        tree, pos = WebAuthn.AbstractSyntaxNotationOne.DER._decode_one(
+        tree, pos = AbstractSyntaxNotationOne.DER._decode_one(
             rsa_key, 1, 0)
         @test DERFIREWALL.firewall_compare_der(rsa_key) == true
         @test DERFIREWALL.firewall_compare_der(rsa_key, tree) == true
         # Evil translation (encodings mismatch): must throw
         evil = copy(rsa_key)
         evil[end-4] ⊻= 0x10
-        tree2, _ = WebAuthn.AbstractSyntaxNotationOne.DER._decode_one(
+        tree2, _ = AbstractSyntaxNotationOne.DER._decode_one(
             evil, 1, 0)
         @test_throws ErrorException DERFIREWALL.firewall_compare_der(
             evil, tree2)

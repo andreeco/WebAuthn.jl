@@ -10,7 +10,7 @@
 # (pass/fail)
 #   - Vector: intentionally broken signature and empty/missing fields (fail)
 using Test, WebAuthn
-using Test, WebAuthn, CBOR, JSON3
+using Test, WebAuthn, CBOR, JSON3, Sodium, SHA
 
 decodeb64url(x) = WebAuthn.base64urldecode(x)
 decodejson(x) = JSON3.read(String(decodeb64url(x)), Dict{String,Any})
@@ -150,28 +150,28 @@ end
     att = parse_attestation_object(att_packed_self)
     delete!(att["attStmt"], "sig")
     broken = WebAuthn.base64urlencode(CBOR.encode(att))
-    @test_throws Exception verify_attestation_object(broken,
+    @test !verify_attestation_object(broken,
         base64urldecode(cdj_b64_self))
 
     # 3) Missing alg
     att = parse_attestation_object(att_packed_self)
     delete!(att["attStmt"], "alg")
     broken = WebAuthn.base64urlencode(CBOR.encode(att))
-    @test_throws Exception verify_attestation_object(broken,
+    @test !verify_attestation_object(broken,
         base64urldecode(cdj_b64_self))
 
     # 4) attStmt empty
     att = parse_attestation_object(att_packed_self)
     att["attStmt"] = Dict()
     broken = WebAuthn.base64urlencode(CBOR.encode(att))
-    @test_throws Exception verify_attestation_object(broken,
+    @test !verify_attestation_object(broken,
         base64urldecode(cdj_b64_self))
 
     # 5) Wrong format
     att = parse_attestation_object(att_packed_self)
     att["fmt"] = "nonsense"
     broken = WebAuthn.base64urlencode(CBOR.encode(att))
-    @test_throws Exception verify_attestation_object(broken,
+    @test !verify_attestation_object(broken,
         base64urldecode(cdj_b64_self))
 
     # 6) Truncated CBOR string
@@ -187,14 +187,14 @@ end
     att = parse_attestation_object(att_packed_x5c)
     att["attStmt"]["x5c"] = [rand(UInt8, 10)] # fake cert
     broken = WebAuthn.base64urlencode(CBOR.encode(att))
-    @test_throws Exception verify_attestation_object(broken,
-        base64urldecode(cdj_b64_x5c))
+    # This must return false for invalid/broken attestation, not throw
+    @test !verify_attestation_object(broken, base64urldecode(cdj_b64_x5c))
 
     # 8) Wrong alg
     att = parse_attestation_object(att_packed_self)
     att["attStmt"]["alg"] = -99
     broken = WebAuthn.base64urlencode(CBOR.encode(att))
-    @test_throws Exception verify_attestation_object(broken,
+    @test !verify_attestation_object(broken,
         base64urldecode(cdj_b64_self))
 
     ####### ADDED FOR EXTRA COVERAGE ########
@@ -202,35 +202,35 @@ end
     att = parse_attestation_object(att_none)
     att["attStmt"] = Dict("sig" => rand(UInt8, 8))
     broken = WebAuthn.base64urlencode(CBOR.encode(att))
-    @test_throws Exception verify_attestation_object(broken,
+    @test !verify_attestation_object(broken,
         base64urldecode(cdj_b64_none))
 
     # 10) attestationObject missing "fmt"
     att = parse_attestation_object(att_packed_self)
     delete!(att, "fmt")
     broken = WebAuthn.base64urlencode(CBOR.encode(att))
-    @test_throws Exception verify_attestation_object(broken,
+    @test !verify_attestation_object(broken,
         base64urldecode(cdj_b64_self))
 
     # 11) attestationObject missing "authData"
     att = parse_attestation_object(att_packed_self)
     delete!(att, "authData")
     broken = WebAuthn.base64urlencode(CBOR.encode(att))
-    @test_throws Exception verify_attestation_object(broken,
+    @test !verify_attestation_object(broken,
         base64urldecode(cdj_b64_self))
 
     # 12) attestationObject missing "attStmt"
     att = parse_attestation_object(att_packed_self)
     delete!(att, "attStmt")
     broken = WebAuthn.base64urlencode(CBOR.encode(att))
-    @test_throws Exception verify_attestation_object(broken,
+    @test !verify_attestation_object(broken,
         base64urldecode(cdj_b64_self))
 
     # 13) attStmt is not a dictionary (should fail)
     att = parse_attestation_object(att_packed_self)
     att["attStmt"] = 42
     broken = WebAuthn.base64urlencode(CBOR.encode(att))
-    @test_throws Exception verify_attestation_object(broken,
+    @test !verify_attestation_object(broken,
         base64urldecode(cdj_b64_self))
 
     # 14) attStmt with extra/unknown fields (should accept or clearly reject)
@@ -250,7 +250,7 @@ end
     att = parse_attestation_object(att_packed_self)
     att["fmt"] = 123
     broken = WebAuthn.base64urlencode(CBOR.encode(att))
-    @test_throws Exception verify_attestation_object(broken,
+    @test !verify_attestation_object(broken,
         base64urldecode(cdj_b64_self))
 end
 

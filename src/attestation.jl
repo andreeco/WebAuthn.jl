@@ -31,23 +31,28 @@ true
 
 See also: [`verify_webauthn_signature`](@ref).
 """
-function verify_attestation_object(attObj_b64::String,
+function verify_attestation_object(attObj_b64::String, 
     clientDataJSON::Vector{UInt8})::Bool
-    attobj = parse_attestation_object(attObj_b64)
-    fmt = String(attobj["fmt"])
-    authData = attobj["authData"]::Vector{UInt8}
-    clientDataHash = SHA.sha256(clientDataJSON)
-    msg = vcat(authData, clientDataHash)
-    if fmt == "none"
-        (haskey(attobj, "attStmt") && length(attobj["attStmt"]) != 0) &&
-            error("attStmt for format 'none' MUST be empty ({}), 
-            got: $(attobj["attStmt"])")
-        return true
-    elseif fmt == "packed"
-        return verify_attestation_packed(attobj["attStmt"], msg, authData,
-            clientDataJSON)
-    else
-        error("Unsupported attestation format: $fmt")
+    try
+        attobj = parse_attestation_object(attObj_b64)
+        fmt = String(attobj["fmt"])
+        authData = attobj["authData"]::Vector{UInt8}
+        clientDataHash = SHA.sha256(clientDataJSON)
+        msg = vcat(authData, clientDataHash)
+        if fmt == "none"
+            (haskey(attobj, "attStmt") && length(attobj["attStmt"]) != 0) &&
+                error("attStmt for format 'none' MUST be empty ({}), got: 
+                $(attobj["attStmt"])")
+            return true
+        elseif fmt == "packed"
+            return verify_attestation_packed(attobj["attStmt"], 
+            msg, authData, clientDataJSON)
+        else
+            error("Unsupported attestation format: $fmt")
+        end
+    catch e
+        @debug "verify_attestation_object failed: $e"
+        return false
     end
 end
 
@@ -124,11 +129,17 @@ function verify_attestation_packed(attStmt::Dict, msg::Vector{UInt8},
     end
 
     if haskey(attStmt, "x5c")
-        certs = attStmt["x5c"]
-        if !(certs isa AbstractVector) || isempty(certs)
-            throw(ArgumentError(
-                "attStmt[\"x5c\"] must be a non-empty vector of certificates"))
-        end
+    certs = attStmt["x5c"]
+    if !(certs isa AbstractVector) || isempty(certs)
+        throw(ArgumentError(
+            "attStmt[\"x5c\"] must be a non-empty vector of certificates"))
+    end
+    cert_der = certs[1]
+    pubkey_pem = extract_pubkey_pem_from_der(cert_der)
+    if pubkey_pem === nothing
+        @debug "extract_pubkey_pem_from_der could not extract a public key"
+        return false
+    end
         cert_der = certs[1]
         pubkey_pem = extract_pubkey_pem_from_der(cert_der)
 

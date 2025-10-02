@@ -1,7 +1,10 @@
 export EC2PublicKey, RSAPublicKey, OKPPublicKey, WebAuthnPublicKey
 export cose_key_parse, cose_key_to_pem
 
-using WebAuthn.AbstractSyntaxNotationOne
+using OpenSSL_jll
+
+#using WebAuthn.AbstractSyntaxNotationOne
+
 
 """
     abstract type WebAuthnPublicKey
@@ -206,6 +209,14 @@ Searches the provided DER bytes for a known EC OID and extracts the embedded
 public key, returning it as a PEM-encoded `SubjectPublicKeyInfo` suitable for
 cryptographic libraries.
 
+OpenSSL's ASN.1/X.509 parsing APIs do not validate the integrity or structure 
+of the input data prior to parsing. Calling them directly on arbitrary or 
+malformed input can cause process crashes, memory corruption, or security 
+issues. Only use these functions on properly validated certificate data, 
+and never on arbitrary or possibly-truncated buffers. Always fallback 
+gracefully on parse failure, and avoid forwarding unverified input to OpenSSL 
+from adversarial sources.
+
 # Examples
 
 ```jldoctest
@@ -226,50 +237,14 @@ julia> pem = WebAuthn.extract_pubkey_pem_from_der(der);
 
 See also: [`cose_key_to_pem`](@ref) and [`der_to_pem`](@ref).
 """
-function extract_pubkey_pem_from_der(der::Vector{UInt8})
-    oid = UInt8[0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x02, 0x01]
-    oid_idx = findfirst(i -> all(j -> der[i+j-1] == oid[j], 1:length(oid)),
-        1:length(der)-length(oid)+1)
-    oid_idx === nothing && error("EC OID not found")
-    idx = oid_idx + length(oid)
-    while idx <= length(der) && der[idx] != 0x03
-        idx += 1
+function extract_pubkey_pem_from_der(der::Vector{UInt8})::String
+    b64 = base64encode(der)
+    lines = ["-----BEGIN PUBLIC KEY-----"]
+    for i = 1:64:length(b64)
+        push!(lines, b64[i:min(i + 63, end)])
     end
-    lenbyte = der[idx+1]
-    off = 2
-    if lenbyte & 0x80 == 0x80
-        lenlen = lenbyte & 0x7f
-        bitstr_len = 0
-        for i = 1:lenlen
-            bitstr_len = (bitstr_len << 8) | der[idx+1+i]
-        end
-        off += lenlen
-    else
-        bitstr_len = lenbyte
-    end
-    unused = der[idx+off]
-    off += 1
-    # Try offsets for robustness
-    for trial in 0:9
-        ptry = der[idx+off+trial:min(length(der), idx + off + trial + 64)]
-        if length(ptry) == 65 && ptry[1] == 0x04
-            pubkey = ptry
-            spki_prefix = UInt8[
-                0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE,
-                0x3D, 0x02, 0x01,
-                0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07,
-                0x03, 0x42, 0x00]
-            der_pk = vcat(spki_prefix, pubkey)
-            b64 = base64encode(der_pk)
-            lines = ["-----BEGIN PUBLIC KEY-----"]
-            for i = 1:64:length(b64)
-                push!(lines, b64[i:min(i + 63, end)])
-            end
-            push!(lines, "-----END PUBLIC KEY-----\n")
-            return join(lines, "\n")
-        end
-    end
-    error("Could not find EC2 public key in DER")
+    push!(lines, "-----END PUBLIC KEY-----\n")
+    return join(lines, "\n")
 end
 
 function extract_pubkey_from_der_raw(der::Vector{UInt8})
@@ -346,37 +321,53 @@ See also: [`pem_to_der`](@ref),
 """
 function parse_ec_pem_xy(pem::AbstractString)
     der = pem_to_der(pem)
-    spki = AbstractSyntaxNotationOne.der_to_asn1(
-        AbstractSyntaxNotationOne.DER.decode(der))
-    if !(spki isa ASN1Sequence)
-        throw(ArgumentError(
-            "DER is not an ASN1Sequence (got $(typeof(spki)))"))
+    GC.@preserve der begin
+        # 1. Load DER to OpenSSL EVP_PKEY*
+        p = Ref{Ptr{UInt8}}(pointer(der))
+        len = Clong(length(der))
+        pkey = ccall((:d2i_PUBKEY, OpenSSL_jll.libcrypto),
+            Ptr{Cvoid}, (Ref{Ptr{Cvoid}}, Ref{Ptr{UInt8}}, Clong),
+            Ref{Ptr{Cvoid}}(C_NULL), p, len)
+        pkey == C_NULL && error("OpenSSL could not parse PEM as PUBKEY")
+        try
+            # 2. Downcast to EC_KEY*
+            eckey = ccall((:EVP_PKEY_get0_EC_KEY, OpenSSL_jll.libcrypto),
+                Ptr{Cvoid}, (Ptr{Cvoid},), pkey)
+            eckey == C_NULL && error("Not an EC key")
+            group = ccall((:EC_KEY_get0_group, OpenSSL_jll.libcrypto),
+                Ptr{Cvoid}, (Ptr{Cvoid},), eckey)
+            point = ccall((:EC_KEY_get0_public_key, OpenSSL_jll.libcrypto),
+                Ptr{Cvoid}, (Ptr{Cvoid},), eckey)
+            # 3. Prepare BIGNUM pointers for x, y
+            bn_x = ccall((:BN_new, OpenSSL_jll.libcrypto), Ptr{Cvoid}, (),)
+            bn_y = ccall((:BN_new, OpenSSL_jll.libcrypto), Ptr{Cvoid}, (),)
+            try
+                ok = ccall((:EC_POINT_get_affine_coordinates_GFp,
+                        OpenSSL_jll.libcrypto),
+                    Cint, (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid},
+                        Ptr{Cvoid}),
+                    group, point, bn_x, bn_y, C_NULL)
+                ok != 1 && error("Failed to get affine coordinates")
+                # P-256 is 32 bytes for x and y. Use BN_bn2binpad for 
+                # fixed left padded
+                x = Vector{UInt8}(undef, 32)
+                y = Vector{UInt8}(undef, 32)
+                ccall((:BN_bn2binpad, OpenSSL_jll.libcrypto), Cint,
+                    (Ptr{Cvoid}, Ptr{UInt8}, Cint), bn_x, pointer(x), 32)
+                ccall((:BN_bn2binpad, OpenSSL_jll.libcrypto), Cint,
+                    (Ptr{Cvoid}, Ptr{UInt8}, Cint), bn_y, pointer(y), 32)
+                return x, y
+            finally
+                ccall((:BN_free, OpenSSL_jll.libcrypto), Cvoid,
+                    (Ptr{Cvoid},), bn_x)
+                ccall((:BN_free, OpenSSL_jll.libcrypto), Cvoid,
+                    (Ptr{Cvoid},), bn_y)
+            end
+        finally
+            ccall((:EVP_PKEY_free, OpenSSL_jll.libcrypto), Cvoid,
+                (Ptr{Cvoid},), pkey)
+        end
     end
-
-    if length(spki.elements) < 2
-        throw(ArgumentError(
-            "SubjectPublicKeyInfo missing elements"))
-    end
-
-    _, bitstr = spki.elements
-    if !(bitstr isa ASN1BitString)
-        throw(ArgumentError(
-            "SubjectPublicKeyInfo does not contain ASN1BitString"))
-    end
-
-    rawbytes = convert(Vector{UInt8}, bitstr)
-
-    if length(rawbytes) < 1 || rawbytes[1] != 0x04
-        throw(ArgumentError(
-            "Only uncompressed EC points supported (expected 0x04 prefix)"))
-    end
-    if length(rawbytes) != 65
-        throw(ArgumentError(
-            "Expected 65-byte EC point, got $(length(rawbytes)) bytes"))
-    end
-    x = rawbytes[2:33]
-    y = rawbytes[34:65]
-    return x, y
 end
 
 """
@@ -415,18 +406,40 @@ true
 See also: [`pem_to_der`](@ref) and [`parse_ec_pem_xy`](@ref).
 """
 function parse_rsa_pem_ne(pem::AbstractString)
-    der = WebAuthn.pem_to_der(pem)
-    # Firewall is called in DER.decode(der)
-    spki = WebAuthn.AbstractSyntaxNotationOne.der_to_asn1(
-        WebAuthn.AbstractSyntaxNotationOne.DER.decode(der)) 
-    _, bitstr = spki.elements
-    inner_bytes = convert(Vector{UInt8}, bitstr)
-    # Parse raw RSAPublicKey node (no firewall)
-    tree, _ = WebAuthn.AbstractSyntaxNotationOne.DER._decode_one(
-        inner_bytes, 1, 0)
-    n_node = tree.children[1]
-    e_node = tree.children[2]
-    return n_node.value, e_node.value
+    der = pem_to_der(pem)
+    GC.@preserve der begin
+        p = Ref{Ptr{UInt8}}(pointer(der))
+        len = Clong(length(der))
+        pkey = ccall((:d2i_PUBKEY, OpenSSL_jll.libcrypto),
+            Ptr{Cvoid}, (Ref{Ptr{Cvoid}}, Ref{Ptr{UInt8}}, Clong),
+            Ref{Ptr{Cvoid}}(C_NULL), p, len)
+        pkey == C_NULL && error("OpenSSL failed to parse RSA PEM")
+        try
+            rsa = ccall((:EVP_PKEY_get0_RSA, OpenSSL_jll.libcrypto),
+                Ptr{Cvoid}, (Ptr{Cvoid},), pkey)
+            rsa == C_NULL && error("Not an RSA key?")
+            n = ccall((:RSA_get0_n, OpenSSL_jll.libcrypto), Ptr{Cvoid},
+                (Ptr{Cvoid},), rsa)
+            e = ccall((:RSA_get0_e, OpenSSL_jll.libcrypto), Ptr{Cvoid},
+                (Ptr{Cvoid},), rsa)
+            n_bits = ccall((:BN_num_bits, OpenSSL_jll.libcrypto), Cint,
+                (Ptr{Cvoid},), n)
+            e_bits = ccall((:BN_num_bits, OpenSSL_jll.libcrypto), Cint,
+                (Ptr{Cvoid},), e)
+            nlen = (n_bits + 7) ÷ 8
+            elen = (e_bits + 7) ÷ 8
+            nbytes = Vector{UInt8}(undef, nlen)
+            ebytes = Vector{UInt8}(undef, elen)
+            ccall((:BN_bn2binpad, OpenSSL_jll.libcrypto), Cint,
+                (Ptr{Cvoid}, Ptr{UInt8}, Cint), n, pointer(nbytes), nlen)
+            ccall((:BN_bn2binpad, OpenSSL_jll.libcrypto), Cint,
+                (Ptr{Cvoid}, Ptr{UInt8}, Cint), e, pointer(ebytes), elen)
+            return nbytes, ebytes
+        finally
+            ccall((:EVP_PKEY_free, OpenSSL_jll.libcrypto), Cvoid,
+                (Ptr{Cvoid},), pkey)
+        end
+    end
 end
 
 """
@@ -458,16 +471,24 @@ See also: [`pem_to_der`](@ref) and [`parse_ec_pem_xy`](@ref).
 """
 function parse_ed25519_pem_x(pem::AbstractString)
     der = pem_to_der(pem)
-    spki = AbstractSyntaxNotationOne.der_to_asn1(
-        AbstractSyntaxNotationOne.DER.decode(der))
-    if length(spki.elements) < 2
-        throw(ArgumentError("Ed25519 key ASN.1 structure missing elements"))
+    GC.@preserve der begin
+        p = Ref{Ptr{UInt8}}(pointer(der))
+        len = Clong(length(der))
+        pkey = ccall((:d2i_PUBKEY, OpenSSL_jll.libcrypto),
+            Ptr{Cvoid}, (Ref{Ptr{Cvoid}}, Ref{Ptr{UInt8}}, Clong),
+            Ref{Ptr{Cvoid}}(C_NULL), p, len)
+        pkey == C_NULL && error("OpenSSL failed to parse Ed25519 PEM")
+        try
+            xbuf = Vector{UInt8}(undef, 32)
+            buflen = Ref{Csize_t}(32)
+            ok = ccall((:EVP_PKEY_get_raw_public_key, OpenSSL_jll.libcrypto),
+                Cint, (Ptr{Cvoid}, Ptr{UInt8}, Ref{Csize_t}), pkey,
+                pointer(xbuf), buflen)
+            ok == 1 || error("Failed to get Ed25519 public key bytes")
+            return xbuf
+        finally
+            ccall((:EVP_PKEY_free, OpenSSL_jll.libcrypto), Cvoid,
+                (Ptr{Cvoid},), pkey)
+        end
     end
-    _, bitstr = spki.elements
-    rawbytes = convert(Vector{UInt8}, bitstr)
-    if length(rawbytes) != 32
-        throw(ArgumentError(
-            "Expected 32-byte Ed25519 key, got $(length(rawbytes)) bytes"))
-    end
-    return rawbytes
 end

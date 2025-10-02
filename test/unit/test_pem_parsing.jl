@@ -33,8 +33,10 @@ end
     -----END PUBLIC KEY-----
     """
     der = WebAuthn.pem_to_der(real_pem)
+    @info "Testing DER", bytes2hex(der)
     pem = WebAuthn.extract_pubkey_pem_from_der(der)
-    @test occursin("BEGIN PUBLIC KEY", pem)
+    @info "Produced pem", pem
+    @test pem !== nothing && occursin("BEGIN PUBLIC KEY", pem)
 
     key = WebAuthn.extract_pubkey_from_der_raw(der)
     @test key isa WebAuthn.EC2PublicKey

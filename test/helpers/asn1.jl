@@ -1,9 +1,29 @@
 """
-# Experimental ASN.1/DER Parsing (with OpenSSL Safeguards!)
+    module AbstractSyntaxNotationOne
 
-This module is experimental. All cryptographic key validation and signature 
-checks are ultimately enforced by OpenSSL ("DER firewall") for safety.
-Do not use for critical applications without review.
+Experimental ASN.1 and DER parsing utilities for debugging and test support.
+
+This internal module provides minimal ASN.1/DER parsing and encoding tools, 
+enabling inspection, test vector generation, and roundtrip testing of ASN.1 
+structures (integers, sequences, etc.) in Julia.
+
+!!! warning "Not for production cryptography"
+    All cryptographic validation and all WebAuthn signature verification are 
+    strictly enforced via OpenSSL ("DER firewall").  
+    This module is **not** intended for use in verifying untrusted inputs in 
+    production or security-sensitive contexts.
+
+### Features
+- Generic ASN.1 and DER structure decode/encode in Julia
+- Useful for debugging and roundtrip test coverage
+- Helps inspect structures when interoperating with OpenSSL primitives
+
+### Background
+
+Direct ASN.1/DER parsing is infamously hard to do safely—OpenSSL/libtasn1 
+integration, edge-cases, and binary safety are all challenging.  
+For all cryptographic operations, this package **always** delegates to OpenSSL 
+or libsodium for parsing and validation.
 """
 
 module AbstractSyntaxNotationOne
@@ -531,9 +551,8 @@ _decode_oid(bytes::Vector{UInt8}) = begin
     out
 end
 
-function _is_printable_string(s::String)
-    allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" *
-              "0123456789 '()+,-./:=?"
+function _is_printable_string(s::String) 
+    allowed = String(['A':'Z'; 'a':'z'; '0':'9'; " '()+,-./:=?"...])
     all(c -> c in allowed, s)
 end
 
