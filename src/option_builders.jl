@@ -1,4 +1,5 @@
 export registration_options, authentication_options
+export enforce_signcount, enforce_up_uv, verify_origin
 
 """
     registration_options(rpid, rpname, user_id, user_name, user_display;
@@ -150,4 +151,111 @@ function authentication_options(rpid::String;
     end
     @debug "WebAuthn authentication_options:" opts
     return opts
+end
+
+"""
+    enforce_signcount(old::Integer, new::Integer)
+
+Reject cloned/replayed credentials per WebAuthn spec.
+
+# Examples
+
+```jldoctest
+julia> enforce_signcount(0, 20)   # Initial use, old is 0: always OK
+true
+
+julia> enforce_signcount(10, 11)  # Normal monotonic increase
+true
+
+julia> enforce_signcount(5, 5)    # No increase (should fail)
+ERROR: ArgumentError: 
+[...]
+
+julia> enforce_signcount(10, 3)   # Replay/clone (should fail)
+ERROR: ArgumentError: 
+[...]
+```
+"""
+function enforce_signcount(old::Integer, new::Integer)
+    (old == 0 && new >= 0) && return true
+    (new > old) && return true
+    throw(ArgumentError("signCount did not increase — possible cloned 
+    authenticator or replay attack"))
+end
+
+"""
+    enforce_up_uv(authData::Vector{UInt8}; require_uv=false)
+
+Check user presence (UP) and user verification (UV) flags in authenticatorData.
+
+# Examples
+
+```jldoctest
+julia> # UP (bit 0) set, UV (bit 2) not set
+
+julia> enforce_up_uv([zeros(UInt8,33); 0x01])
+true
+
+julia> # UP and UV set
+
+julia> enforce_up_uv([zeros(UInt8,33); 0x05])
+true
+
+julia> # UP not set
+
+julia> enforce_up_uv([zeros(UInt8,33); 0x00])
+ERROR: 
+[...]
+
+julia> # UP set, require UV (but UV not set)
+
+julia> enforce_up_uv([zeros(UInt8,33); 0x01]; require_uv=true)
+ERROR: 
+[...]
+
+julia> # UP and UV set, require UV (pass)
+
+julia>  enforce_up_uv([zeros(UInt8,33); 0x05]; require_uv=true)
+true
+"""
+function enforce_up_uv(authData::Vector{UInt8}; require_uv::Bool=false)
+    flags = authData[33]
+    if (flags & 0x01) == 0
+        throw(ArgumentError("User Presence (UP) flag not set in assertion"))
+    end
+    if require_uv && (flags & 0x04) == 0
+        throw(ArgumentError("User Verification (UV) required but not set"))
+    end
+    return true
+end
+
+"""
+    verify_origin(cdj::Dict, expected::String)
+
+Check that the 'origin' field in the parsed clientDataJSON matches what you 
+expect.
+
+# Examples
+
+```jldoctest
+julia> verify_origin(Dict("origin" => "https://demo.test"), "https://demo.test")
+true
+
+julia> verify_origin(Dict("origin" => "https://evil.site"), "https://demo.test")
+ERROR: ArgumentError: 
+[...]
+
+julia> # If 'origin' key is missing in dict
+
+julia> verify_origin(Dict("foo" => 42), "https://demo.test")
+ERROR: ArgumentError: 
+[...]
+```
+"""
+function verify_origin(cdj::Dict, expected::String)
+    if get(cdj, "origin", nothing) != expected
+        throw(ArgumentError("Origin mismatch: 
+        expected $expected, got $(get(cdj, "origin", nothing))"))
+    end
+    return true
 end

@@ -270,20 +270,25 @@ function serve_loginfinish(req)
     end
     pubkey = WebAuthn.cose_key_parse(
         CBOR.decode(WebAuthn.base64urldecode(cred[:public_key_cose])))
-    ok = WebAuthn.verify_webauthn_signature(pubkey,
-        WebAuthn.base64urldecode(payload["response"]["authenticatorData"]),
-        WebAuthn.base64urldecode(payload["response"]["clientDataJSON"]),
-        WebAuthn.base64urldecode(payload["response"]["signature"]))
+        ad = WebAuthn.base64urldecode(payload["response"]["authenticatorData"])
+    cdj = WebAuthn.base64urldecode(payload["response"]["clientDataJSON"])
+    sig = WebAuthn.base64urldecode(payload["response"]["signature"])
+    cdj_dict = WebAuthn.parse_clientdata_json(payload["response"]["clientDataJSON"])
+    ok = WebAuthn.verify_webauthn_signature(pubkey, ad, cdj, sig)
     username = get(cred, :username, "")
-    if ok
-        return HTTP.Response(200, ["Content-Type" => "application/json"],
-            JSON3.write(Dict("ok" => true, "username" => username,
-                "redirect" => "/login_success?username=$username"))
-        )
-    else
-        return HTTP.Response(403, ["Content-Type" => "text/plain"],
-            "Bad signature")
+    if !ok
+        return HTTP.Response(403, ["Content-Type" => "text/plain"], "Bad signature")
     end
+    verify_origin(cdj_dict, "http://localhost:8000")
+    old_signcount = cred[:sign_count]
+    new_signcount = reinterpret(UInt32, ad[34:37])[1]
+    enforce_signcount(old_signcount, new_signcount)
+    cred[:sign_count] = new_signcount
+    enforce_up_uv(ad; require_uv=false)
+    return HTTP.Response(200, ["Content-Type" => "application/json"],
+        JSON3.write(Dict("ok" => true, "username" => username,
+            "redirect" => "/login_success?username=$username"))
+    )
 end
 HTTP.register!(router, "POST", "/webauthn/login", serve_loginfinish)
 
