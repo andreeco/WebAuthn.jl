@@ -87,6 +87,7 @@ See also: [`EC2PublicKey`](@ref), [`RSAPublicKey`](@ref) and
 [`OKPPublicKey`](@ref).
 """
 function cose_key_parse(cose::Dict)
+    # TODO: Use OpenSSL for DER/PEM and validate key field lengths.
     kty = cose[1]
     if kty == 2
         EC2PublicKey(cose[-2], cose[-3], cose[3], cose[-1])
@@ -124,6 +125,7 @@ See also: [`cose_key_parse`](@ref).
 """
 function cose_key_to_pem(key::WebAuthnPublicKey) end
 
+# TODO: Use OpenSSL for DER/PEM and validate key field lengths.
 function cose_key_to_pem(key::EC2PublicKey)
     pub = vcat(UInt8(0x04), key.x, key.y)
     asn1 = [0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE,
@@ -136,6 +138,7 @@ function cose_key_to_pem(key::EC2PublicKey)
            "\n-----END PUBLIC KEY-----\n"
 end
 
+# TODO: Use OpenSSL for DER/PEM and validate key field lengths.
 function cose_key_to_pem(key::RSAPublicKey)
     function asn1_len(n)
         n < 128 ? UInt8[n] : vcat(UInt8(0x80 + length(digits(n, base=256))),
@@ -159,6 +162,7 @@ function cose_key_to_pem(key::RSAPublicKey)
            "\n-----END PUBLIC KEY-----\n"
 end
 
+# TODO: Use OpenSSL for DER/PEM and validate key field lengths.
 function cose_key_to_pem(key::OKPPublicKey)
     algid = UInt8[0x30, 0x05, 0x06, 0x03, 0x2B, 0x65, 0x70]
     L = 1 + length(key.x)
@@ -274,6 +278,7 @@ julia> der = WebAuthn.pem_to_der(pem);
 ```
 """
 function pem_to_der(pem::AbstractString)
+    # TODO: Use OpenSSL for DER/PEM and validate key field lengths.
     b64 = match(r"-----BEGIN [A-Z ]+-----(.*?)-----END [A-Z ]+-----"ms, pem)
     b64 === nothing && error("PEM parse error")
     raw = replace(b64.captures[1], r"\s+" => "")
