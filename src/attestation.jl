@@ -31,7 +31,7 @@ true
 
 See also: [`verify_webauthn_signature`](@ref).
 """
-function verify_attestation_object(attObj_b64::String, 
+function verify_attestation_object(attObj_b64::String,
     clientDataJSON::Vector{UInt8})::Bool
     try
         attobj = parse_attestation_object(attObj_b64)
@@ -45,8 +45,8 @@ function verify_attestation_object(attObj_b64::String,
                 $(attobj["attStmt"])")
             return true
         elseif fmt == "packed"
-            return verify_attestation_packed(attobj["attStmt"], 
-            msg, authData, clientDataJSON)
+            return verify_attestation_packed(attobj["attStmt"],
+                msg, authData, clientDataJSON)
         else
             error("Unsupported attestation format: $fmt")
         end
@@ -129,17 +129,17 @@ function verify_attestation_packed(attStmt::Dict, msg::Vector{UInt8},
     end
 
     if haskey(attStmt, "x5c")
-    certs = attStmt["x5c"]
-    if !(certs isa AbstractVector) || isempty(certs)
-        throw(ArgumentError(
-            "attStmt[\"x5c\"] must be a non-empty vector of certificates"))
-    end
-    cert_der = certs[1]
-    pubkey_pem = extract_pubkey_pem_from_der(cert_der)
-    if pubkey_pem === nothing
-        @debug "extract_pubkey_pem_from_der could not extract a public key"
-        return false
-    end
+        certs = attStmt["x5c"]
+        if !(certs isa AbstractVector) || isempty(certs)
+            throw(ArgumentError(
+                "attStmt[\"x5c\"] must be a non-empty vector of certificates"))
+        end
+        cert_der = certs[1]
+        pubkey_pem = extract_pubkey_pem_from_der(cert_der)
+        if pubkey_pem === nothing
+            @debug "extract_pubkey_pem_from_der could not extract a public key"
+            return false
+        end
         cert_der = certs[1]
         pubkey_pem = extract_pubkey_pem_from_der(cert_der)
 
@@ -151,8 +151,10 @@ function verify_attestation_packed(attStmt::Dict, msg::Vector{UInt8},
             return verify_rsa_signature_raw_ne(n, e, SHA.sha256(msg), sig)
         elseif cose_alg == -8    # Ed25519
             x = parse_ed25519_pem_x(pubkey_pem)
+            # Spec: Ed25519 "packed" attestation signs *clientDataHash only*
+            client_hash = SHA.sha256(clientDataJSON)
             return Sodium.crypto_sign_verify_detached(
-                sig, msg, length(msg), x) == 0
+                sig, client_hash, length(client_hash), x) == 0
         else
             error("Unsupported algorithm in packed/x5c: $cose_alg")
         end
@@ -167,12 +169,12 @@ function verify_attestation_packed(attStmt::Dict, msg::Vector{UInt8},
             return verify_rsa_signature_raw_ne(credpub.n, credpub.e,
                 SHA.sha256(msub), sig)
         elseif credpub isa OKPPublicKey
-            return Sodium.crypto_sign_verify_detached(sig, msub,
-                length(msub),
-                credpub.x) == 0
+            client_hash = msg[length(authData)+1:end]
+            return Sodium.crypto_sign_verify_detached(
+                sig, client_hash, length(client_hash), credpub.x) == 0
         else
-            error("Self-attestation only supported for EC2/RSA/OKP, got $(
-            typeof(credpub))")
+            error("Self-attestation only supported for EC2/RSA/OKP, 
+            got $(typeof(credpub))")
         end
     end
 end

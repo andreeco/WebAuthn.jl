@@ -17,6 +17,15 @@ julia> length(base64urldecode(challenge))
 """
 generate_challenge(n::Int=32) = base64urlencode(rand(RandomDevice(), UInt8, n))
 
+function _constant_time_eq(a::Vector{UInt8}, b::Vector{UInt8})
+    length(a) == length(b) || return false
+    diff = 0
+    for i in eachindex(a)
+        diff |= xor(a[i], b[i])
+    end
+    return diff == 0
+end
+
 """
     verify_challenge(clientDataJSON_b64, expected_challenge_b64)::Bool
 
@@ -43,6 +52,11 @@ See also: [`generate_challenge`](@ref)
 function verify_challenge(clientDataJSON_b64::AbstractString,
     expected_challenge_b64::AbstractString)
     actual = parse_clientdata_json(clientDataJSON_b64)["challenge"]
-    actual == expected_challenge_b64 || base64urldecode(actual) ==
-                                        base64urldecode(expected_challenge_b64)
+    # Compare both direct string and decoded bytes in constant time
+    if actual == expected_challenge_b64
+        return true
+    end
+    a_dec = base64urldecode(actual)
+    b_dec = base64urldecode(expected_challenge_b64)
+    return _constant_time_eq(a_dec, b_dec)
 end

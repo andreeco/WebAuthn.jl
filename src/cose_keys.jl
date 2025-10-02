@@ -282,7 +282,11 @@ julia> der = WebAuthn.pem_to_der(pem);
 function pem_to_der(pem::AbstractString)
     b64 = match(r"-----BEGIN [A-Z ]+-----(.*?)-----END [A-Z ]+-----"ms, pem)
     b64 === nothing && error("PEM parse error")
-    base64decode(replace(b64.captures[1], r"\s+" => ""))
+    raw = replace(b64.captures[1], r"\s+" => "")
+    if length(raw) > 4 * 1024 * 1024   # 4MB size cap
+        throw(ArgumentError("PEM body too large"))
+    end
+    base64decode(raw)
 end
 
 """

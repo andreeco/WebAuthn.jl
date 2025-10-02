@@ -26,13 +26,26 @@ See also: [`parse_credential_public_key`](@ref)
 """
 function extract_credential_public_key(authData::Vector{UInt8})
     offset = 37
+    total_len = length(authData)
+    # check required fields exist before slicing
+    if total_len < offset + 16 + 2
+        throw(ArgumentError("authData too short to contain AAGUID and 
+        credId length"))
+    end
     offset += 16
     id_len = (authData[offset+1] << 8) | authData[offset+2]
     offset += 2
+    if offset + id_len > total_len
+        throw(ArgumentError("authData truncated: credId length exceeds buffer"))
+    end
     offset += id_len
+    if offset > total_len
+        throw(ArgumentError("authData truncated before public key bytes"))
+    end
     pk_bytes = authData[offset+1:end]
     return pk_bytes
 end
+
 
 const AUTHDATA_OFFSET = 37
 const AAGUID_LEN = 16
@@ -65,14 +78,28 @@ See also: [`extract_credential_public_key`](@ref) and [`cose_key_parse`](@ref).
 """
 function parse_credential_public_key(authData::Vector{UInt8})
     offset = AUTHDATA_OFFSET
-    # required by spec, but not used here
-    aaguid = authData[offset+1:offset+AAGUID_LEN]
+    total_len = length(authData)
+
+    if total_len < offset + AAGUID_LEN + 2
+        throw(ArgumentError("authData too short to parse credential 
+        public key"))
+    end
+
     offset += AAGUID_LEN
     credlen = (authData[offset+1] << 8) | authData[offset+2]
     offset += 2
-    # also not used here
-    credid = authData[offset+1:offset+credlen]
+
+    if offset + credlen > total_len
+        throw(ArgumentError("authData truncated: credId length exceeds buffer"))
+    end
+
     offset += credlen
+    if offset > total_len
+        throw(ArgumentError("authData truncated before credentialPublicKey"))
+    end
+
     pk_bytes = authData[offset+1:end]
-    cose_key_parse(CBOR.decode(pk_bytes))
+    cose = CBOR.decode(pk_bytes)
+
+    return cose_key_parse(cose)
 end

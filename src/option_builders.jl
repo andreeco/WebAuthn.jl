@@ -52,11 +52,11 @@ function registration_options(rpid::String, rpname::String, user_id,
     ubytes = isa(user_id, Vector{UInt8}) ? user_id :
              Vector{UInt8}(string(user_id))
     if length(ubytes) < 1 || length(ubytes) > 64
-        throw(ArgumentError("user.id must be between 1 and 64 bytes 
-        (got $(length(ubytes)))"))
+        throw(ArgumentError("user.id must be between 1 and 64 bytes"))
     end
+
     if isempty(user_name)
-        throw(ArgumentError("user.name required & must not be empty"))
+        throw(ArgumentError("user.name is required and must not be empty"))
     end
 
     # Exclude credentials as needed
@@ -134,11 +134,11 @@ function authentication_options(rpid::String;
     challenge=nothing,
     timeout=60000,
     kwargs...)
-    allowcreds = [Dict("type" => "public-key", "id" => id) for id in 
-    allow_credential_ids]
+    allowcreds = [Dict("type" => "public-key", "id" => id) for id in
+                  allow_credential_ids]
     opts = Dict(
-        "challenge" => challenge === nothing ? generate_challenge() : 
-        challenge,
+        "challenge" => challenge === nothing ? generate_challenge() :
+                       challenge,
         "rpId" => rpid,
         "timeout" => timeout,
         "allowCredentials" => allowcreds,
