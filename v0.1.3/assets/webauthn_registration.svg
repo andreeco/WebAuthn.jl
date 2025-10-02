@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="420" viewBox="0 0 900 420">
+  <style>
+    .participant { font: bold 14px sans-serif; text-anchor: middle; }
+    .box { fill: #f8f9fa; stroke: #333; stroke-width:1.2; rx:6; ry:6; }
+    .lifeline { stroke: #888; stroke-dasharray:4 4; }
+    .arrow { stroke: #333; stroke-width:1.6; fill:none; marker-end: url(#arrowhead); }
+    .note { font: 13px sans-serif; fill:#111; }
+    .small { font: 12px sans-serif; }
+  </style>
+
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+    </marker>
+  </defs>
+
+  <!-- Participants -->
+  <g transform="translate(40,20)">
+    <g id="participants">
+      <rect class="box" x="0" y="0" width="140" height="34" />
+      <text x="70" y="22" class="participant">User</text>
+
+      <rect class="box" x="170" y="0" width="140" height="34" />
+      <text x="240" y="22" class="participant">Browser</text>
+
+      <rect class="box" x="340" y="0" width="140" height="34" />
+      <text x="410" y="22" class="participant">Authenticator</text>
+
+      <rect class="box" x="510" y="0" width="140" height="34" />
+      <text x="580" y="22" class="participant">Server</text>
+    </g>
+
+    <!-- Lifelines -->
+    <g id="lifelines" transform="translate(70,40)">
+      <line class="lifeline" x1="0" y1="0" x2="0" y2="300"/>
+      <line class="lifeline" x1="200" y1="0" x2="200" y2="300"/>
+      <line class="lifeline" x1="370" y1="0" x2="370" y2="300"/>
+      <line class="lifeline" x1="540" y1="0" x2="540" y2="300"/>
+    </g>
+
+    <!-- Messages (vertical positions chosen for clarity) -->
+    <!-- Server -> Browser: Build options (registration_options) -->
+    <g transform="translate(0,60)">
+      <path class="arrow" d="M540 0 L240 0" />
+      <text class="note" x="380" y="-6" text-anchor="middle">Build options (registration_options)</text>
+    </g>
+
+    <!-- Browser -> Authenticator: navigator.credentials.create(...) -->
+    <g transform="translate(0,120)">
+      <path class="arrow" d="M240 0 L370 0" />
+      <text class="note" x="305" y="-6" text-anchor="middle">navigator.credentials.create(...)</text>
+    </g>
+
+    <!-- Authenticator --> Browser: attestationObject, clientDataJSON (dashed return arrow) -->
+    <g transform="translate(0,180)">
+      <path class="arrow" d="M370 0 L240 0" style="stroke-dasharray:1" />
+      <text class="note" x="305" y="-6" text-anchor="middle">attestationObject, clientDataJSON</text>
+    </g>
+
+    <!-- Browser -> Server: submits these responses -->
+    <g transform="translate(0,240)">
+      <path class="arrow" d="M240 0 L540 0" />
+      <text class="note" x="390" y="-6" text-anchor="middle">submits these responses</text>
+    </g>
+
+    <!-- Server verify -->
+    <g transform="translate(0,300)">
+      <rect x="510" y="-6" width="140" height="28" rx="5" ry="5" fill="#fffbe6" stroke="#c47f00"/>
+      <text class="small" x="580" y="14" text-anchor="middle">verify using WebAuthn.jl</text>
+    </g>
+  </g>
+</svg>

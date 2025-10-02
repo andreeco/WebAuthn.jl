@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Home · WebAuthn.jl</title><meta name="title" content="Home · WebAuthn.jl"/><meta property="og:title" content="Home · WebAuthn.jl"/><meta property="twitter:title" content="Home · WebAuthn.jl"/><meta name="description" content="Documentation for WebAuthn.jl."/><meta property="og:description" content="Documentation for WebAuthn.jl."/><meta property="twitter:description" content="Documentation for WebAuthn.jl."/><meta property="og:url" content="https://andreeco.github.io/WebAuthn.jl/"/><meta property="twitter:url" content="https://andreeco.github.io/WebAuthn.jl/"/><link rel="canonical" href="https://andreeco.github.io/WebAuthn.jl/"/><script data-outdated-warner src="assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="assets/documenter.js"></script><script src="search_index.js"></script><script src="siteinfo.js"></script><script src="../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href>WebAuthn.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li class="is-active"><a class="tocitem" href>Home</a><ul class="internal"><li><a class="tocitem" href="#Features"><span>Features</span></a></li><li><a class="tocitem" href="#Getting-Started"><span>Getting Started</span></a></li><li><a class="tocitem" href="#How-WebAuthn-Works"><span>How WebAuthn Works</span></a></li><li><a class="tocitem" href="#Tips"><span>Tips</span></a></li><li><a class="tocitem" href="#Demo-Server-Example"><span>Demo Server Example</span></a></li><li><a class="tocitem" href="#How-to-Test-WebAuthn-with-a-Security-Key-or-Phone"><span>How to Test WebAuthn with a Security Key or Phone</span></a></li><li><a class="tocitem" href="#Full-Example-Server"><span>Full Example Server</span></a></li><li><a class="tocitem" href="#Contributions"><span>Contributions</span></a></li><li><a class="tocitem" href="#License"><span>License</span></a></li></ul></li><li><a class="tocitem" href="api/">API</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Home</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Home</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/andreeco/WebAuthn.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/andreeco/WebAuthn.jl/blob/main/docs/src/index.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="WebAuthn.jl"><a class="docs-heading-anchor" href="#WebAuthn.jl">WebAuthn.jl</a><a id="WebAuthn.jl-1"></a><a class="docs-heading-anchor-permalink" href="#WebAuthn.jl" title="Permalink"></a></h1><p><a href="https://github.com/andreeco/WebAuthn.jl">WebAuthn.jl</a> brings passkey and FIDO2/WebAuthn authentication to Julia web servers.   It provides end-to-end functions for registration and login, CBOR/COSE key parsing, challenge signing, signature verification, and PEM export.</p><hr/><div class="admonition is-warning" id="Experimental-2e815ad8d359c4a0"><header class="admonition-header">Experimental<a class="admonition-anchor" href="#Experimental-2e815ad8d359c4a0" title="Permalink"></a></header><div class="admonition-body"><p>This code is experimental. All cryptographic validation is enforced by OpenSSL or Sodium for safety. Please <strong>do not use in production</strong> without a full security review.</p></div></div><h2 id="Features"><a class="docs-heading-anchor" href="#Features">Features</a><a id="Features-1"></a><a class="docs-heading-anchor-permalink" href="#Features" title="Permalink"></a></h2><ul><li>CBOR/COSE key parsing (P-256, RSA, Ed25519)</li><li>Base64url encode/decode &amp; random challenge generator</li><li>Registration and authentication options utilities</li><li>Secure signature and challenge verification</li><li>PEM export of public keys</li></ul><hr/><h2 id="Getting-Started"><a class="docs-heading-anchor" href="#Getting-Started">Getting Started</a><a id="Getting-Started-1"></a><a class="docs-heading-anchor-permalink" href="#Getting-Started" title="Permalink"></a></h2><ol><li><strong>Install this package:</strong><pre><code class="nohighlight hljs">] add WebAuthn</code></pre></li><li><strong>Import into your Julia session:</strong><pre><code class="language-julia hljs">using WebAuthn</code></pre></li><li><strong>For Demo Server Example below:</strong>  <pre><code class="nohighlight hljs">] add HTTP, Sockets, JSON3, WebAuthn, Random, CBOR</code></pre></li></ol><hr/><h2 id="How-WebAuthn-Works"><a class="docs-heading-anchor" href="#How-WebAuthn-Works">How WebAuthn Works</a><a id="How-WebAuthn-Works-1"></a><a class="docs-heading-anchor-permalink" href="#How-WebAuthn-Works" title="Permalink"></a></h2><p>WebAuthn enables <strong>passwordless</strong>, phishing-resistant authentication using public-key cryptography.   A passkey (credential) is generated and stored securely on the user device; <strong>private keys never leave</strong> the device.</p><hr/><h3 id="Registration-Workflow"><a class="docs-heading-anchor" href="#Registration-Workflow">Registration Workflow</a><a id="Registration-Workflow-1"></a><a class="docs-heading-anchor-permalink" href="#Registration-Workflow" title="Permalink"></a></h3><p><img src="assets/webauthn_registration.svg" alt/></p><ol><li><p><strong>Server generates options:</strong>   <a href="api/#WebAuthn.registration_options-Tuple{String, String, Any, String, String}"><code>registration_options</code></a> — builds challenge and metadata for browser.</p></li><li><p><strong>Client creates credential:</strong>   Browser and authenticator generate a new passkey on the device.</p></li><li><p><strong>Authenticator returns attestation:</strong>   Browser returns <code>attestationObject</code> and <code>clientDataJSON</code> to your server.</p></li><li><p><strong>Server verifies registration:</strong>  </p><ul><li>Parse: <a href="api/#WebAuthn.parse_attestation_object-Tuple{String}"><code>parse_attestation_object</code></a>, <a href="api/#WebAuthn.parse_clientdata_json-Tuple{String}"><code>parse_clientdata_json</code></a></li><li>Check challenge: <a href="api/#WebAuthn.verify_challenge-Tuple{AbstractString, AbstractString}"><code>verify_challenge</code></a></li><li>Extract public key: <a href="api/#WebAuthn.extract_credential_public_key-Tuple{Vector{UInt8}}"><code>extract_credential_public_key</code></a>, <a href="api/#WebAuthn.cose_key_parse-Tuple{Dict}"><code>cose_key_parse</code></a></li><li>(Optional) Validate attestation: <a href="api/#WebAuthn.verify_attestation_object-Tuple{String, Vector{UInt8}}"><code>verify_attestation_object</code></a>  </li><li>Store credential ID &amp; public key for future logins.</li></ul></li></ol><hr/><h3 id="Authentication-Workflow"><a class="docs-heading-anchor" href="#Authentication-Workflow">Authentication Workflow</a><a id="Authentication-Workflow-1"></a><a class="docs-heading-anchor-permalink" href="#Authentication-Workflow" title="Permalink"></a></h3><p><img src="assets/webauthn_authentication.svg" alt/></p><ol><li><p><strong>Server generates assertion options:</strong>   <a href="api/#WebAuthn.authentication_options-Tuple{String}"><code>authentication_options</code></a></p></li><li><p><strong>Client signs with passkey:</strong>   Browser prompts user; authenticator signs challenge.</p></li><li><p><strong>Authenticator returns assertion:</strong>   Server receives: authenticator data, clientDataJSON, signature.</p></li><li><p><strong>Server verifies signature:</strong>  </p><ul><li>Parse: <a href="api/#WebAuthn.parse_assertion-Tuple{AbstractString, AbstractString}"><code>parse_assertion</code></a>, <a href="api/#WebAuthn.parse_clientdata_json-Tuple{String}"><code>parse_clientdata_json</code></a></li><li>Verify challenge: <a href="api/#WebAuthn.verify_challenge-Tuple{AbstractString, AbstractString}"><code>verify_challenge</code></a></li><li>Signature check: <a href="api/#WebAuthn.verify_webauthn_signature"><code>verify_webauthn_signature</code></a>  </li><li>(Optional) Enforce signCount, user presence, user verification</li></ul></li></ol><hr/><h3 id="Core-Functions-by-Flow"><a class="docs-heading-anchor" href="#Core-Functions-by-Flow">Core Functions by Flow</a><a id="Core-Functions-by-Flow-1"></a><a class="docs-heading-anchor-permalink" href="#Core-Functions-by-Flow" title="Permalink"></a></h3><table><tr><th style="text-align: right">Phase</th><th style="text-align: right">Step</th><th style="text-align: right">WebAuthn.jl Functions</th></tr><tr><td style="text-align: right">Registration</td><td style="text-align: right">Build options</td><td style="text-align: right"><a href="api/#WebAuthn.registration_options-Tuple{String, String, Any, String, String}"><code>registration_options</code></a></td></tr><tr><td style="text-align: right"></td><td style="text-align: right">Parse &amp; verify</td><td style="text-align: right"><a href="api/#WebAuthn.parse_attestation_object-Tuple{String}"><code>parse_attestation_object</code></a>, <a href="api/#WebAuthn.parse_clientdata_json-Tuple{String}"><code>parse_clientdata_json</code></a>,<a href="api/#WebAuthn.verify_challenge-Tuple{AbstractString, AbstractString}"><code>verify_challenge</code></a>, <a href="api/#WebAuthn.extract_credential_public_key-Tuple{Vector{UInt8}}"><code>extract_credential_public_key</code></a>, <a href="api/#WebAuthn.cose_key_parse-Tuple{Dict}"><code>cose_key_parse</code></a>, <a href="api/#WebAuthn.verify_attestation_object-Tuple{String, Vector{UInt8}}"><code>verify_attestation_object</code></a></td></tr><tr><td style="text-align: right">Authentication</td><td style="text-align: right">Build options</td><td style="text-align: right"><a href="api/#WebAuthn.authentication_options-Tuple{String}"><code>authentication_options</code></a></td></tr><tr><td style="text-align: right"></td><td style="text-align: right">Parse &amp; verify</td><td style="text-align: right"><a href="api/#WebAuthn.parse_assertion-Tuple{AbstractString, AbstractString}"><code>parse_assertion</code></a>, <a href="api/#WebAuthn.parse_clientdata_json-Tuple{String}"><code>parse_clientdata_json</code></a>, <a href="api/#WebAuthn.verify_challenge-Tuple{AbstractString, AbstractString}"><code>verify_challenge</code></a>, <a href="api/#WebAuthn.verify_webauthn_signature"><code>verify_webauthn_signature</code></a></td></tr></table><p><em>See also:</em> <a href="api/#WebAuthn.cose_key_to_pem-Tuple{WebAuthnPublicKey}"><code>cose_key_to_pem</code></a> for PEM export/interoperation.</p><hr/><h2 id="Tips"><a class="docs-heading-anchor" href="#Tips">Tips</a><a id="Tips-1"></a><a class="docs-heading-anchor-permalink" href="#Tips" title="Permalink"></a></h2><ul><li>All crypto uses <a href="https://github.com/JuliaBinaryWrappers/OpenSSL_jll.jl">OpenSSL_jll</a> and <a href="https://github.com/Gnimuc/Sodium.jl">Sodium.jl</a>.</li><li>Always verify the <strong>challenge</strong> and client <strong>origin</strong> in every response.</li><li>Check <strong>signCount</strong> to stop replay or clone attacks.</li><li>For user presence/verification, check flags in authenticator data (see FIDO2 spec).</li></ul><hr/><h2 id="Demo-Server-Example"><a class="docs-heading-anchor" href="#Demo-Server-Example">Demo Server Example</a><a id="Demo-Server-Example-1"></a><a class="docs-heading-anchor-permalink" href="#Demo-Server-Example" title="Permalink"></a></h2><p>Below is a <strong>reference implementation</strong> of a simple web server. It serves HTML/JS assets, builds and verifies WebAuthn flows, and manages user  passkeys in memory.</p><p><strong>Demo screenshots:</strong></p><p><img src="assets/register.png" alt/> <img src="assets/success.png" alt/> <img src="assets/qr_code_chrome.png" alt/></p><h2 id="How-to-Test-WebAuthn-with-a-Security-Key-or-Phone"><a class="docs-heading-anchor" href="#How-to-Test-WebAuthn-with-a-Security-Key-or-Phone">How to Test WebAuthn with a Security Key or Phone</a><a id="How-to-Test-WebAuthn-with-a-Security-Key-or-Phone-1"></a><a class="docs-heading-anchor-permalink" href="#How-to-Test-WebAuthn-with-a-Security-Key-or-Phone" title="Permalink"></a></h2><ol><li><p><strong>With hardware key:</strong>   Insert device, use when prompted.</p></li><li><p><strong>With smartphone (virtual security key):</strong>  </p><ul><li>Enable Bluetooth on computer and phone and connect them</li><li>Visit demo site in Chrome; choose &quot;Use phone&quot; when prompted</li><li>Scan QR code on screen and follow prompts on your phone</li></ul></li></ol><hr/><h2 id="Full-Example-Server"><a class="docs-heading-anchor" href="#Full-Example-Server">Full Example Server</a><a id="Full-Example-Server-1"></a><a class="docs-heading-anchor-permalink" href="#Full-Example-Server" title="Permalink"></a></h2><p>After installing the dependencies, you can copy-paste this code.</p><pre><code class="language-julia hljs">using HTTP, Sockets, JSON3, WebAuthn, Random, CBOR
+
+USERS = Dict{String,Dict{Symbol,Any}}()
+CREDENTIALS = Dict{String,Dict{Symbol,Any}}()
+router = HTTP.Router()
+
+function serve_login_success(req)
+    params = HTTP.queryparams(req)
+    username = get(params, &quot;username&quot;, &quot;&quot;)
+    html = replace(WebAuthn.asset(&quot;login_success.html&quot;),
+        &quot;{{USERNAME}}&quot; =&gt; HTTP.escapehtml(username))
+    return HTTP.Response(200, [&quot;Content-Type&quot; =&gt; &quot;text/html&quot;], html)
+end
+HTTP.register!(router, &quot;GET&quot;, &quot;/login_success&quot;, serve_login_success)
+
+function serve_index(req)
+    HTTP.Response(200, [&quot;Content-Type&quot; =&gt; &quot;text/html&quot;],
+        WebAuthn.asset(&quot;index.html&quot;))
+end
+HTTP.register!(router, &quot;GET&quot;, &quot;/&quot;, serve_index)
+
+function serve_webauthn_register_js(req)
+    HTTP.Response(200, [&quot;Content-Type&quot; =&gt; &quot;application/javascript&quot;],
+        WebAuthn.asset(&quot;webauthn_register.js&quot;))
+end
+HTTP.register!(router, &quot;GET&quot;, &quot;/webauthn_register.js&quot;,
+    serve_webauthn_register_js)
+
+function serve_webauthn_login_js(req)
+    HTTP.Response(200, [&quot;Content-Type&quot; =&gt; &quot;application/javascript&quot;],
+        WebAuthn.asset(&quot;webauthn_login.js&quot;))
+end
+HTTP.register!(router, &quot;GET&quot;, &quot;/webauthn_login.js&quot;, serve_webauthn_login_js)
+
+# Registration options endpoint (browser calls before registration)
+function serve_regoptions(req)
+    q = HTTP.queryparams(req)
+    username = get(q, &quot;username&quot;, &quot;&quot;)
+    if isempty(username)
+        charset = vcat(&#39;A&#39;:&#39;Z&#39;, &#39;a&#39;:&#39;z&#39;, &#39;0&#39;:&#39;9&#39;)
+        username = join(rand(charset, 8))
+    end
+    opts = WebAuthn.registration_options(
+        &quot;localhost&quot;, &quot;Passkey Demo&quot;, username, username, username;
+        exclude_ids=[]
+    )
+    USERS[username] = Dict(:challenge =&gt; opts[&quot;challenge&quot;])
+    return HTTP.Response(200, [&quot;Content-Type&quot; =&gt; &quot;application/json&quot;],
+        JSON3.write(merge(opts, Dict(&quot;username&quot; =&gt; username))))
+end
+HTTP.register!(router, &quot;GET&quot;, &quot;/webauthn/options/register&quot;, serve_regoptions)
+
+# Registration finalize endpoint
+function serve_regfinish(req)
+    payload = JSON3.read(String(req.body))
+    username = get(payload, &quot;username&quot;, &quot;&quot;)
+    if isempty(username)
+        return HTTP.Response(400, [&quot;Content-Type&quot; =&gt; &quot;text/plain&quot;],
+            &quot;Missing username&quot;)
+    end
+    chal = get(USERS[username], :challenge, nothing)
+    if chal === nothing
+        return HTTP.Response(400, [&quot;Content-Type&quot; =&gt; &quot;text/plain&quot;],
+            &quot;No challenge for username.&quot;)
+    end
+    if !WebAuthn.verify_challenge(
+        payload[&quot;response&quot;][&quot;clientDataJSON&quot;], chal)
+        return HTTP.Response(400, [&quot;Content-Type&quot; =&gt; &quot;text/plain&quot;],
+            &quot;Challenge fail&quot;)
+    end
+    attobj = WebAuthn.parse_attestation_object(
+        payload[&quot;response&quot;][&quot;attestationObject&quot;])
+    pkbytes = WebAuthn.extract_credential_public_key(attobj[&quot;authData&quot;])
+    cred_id = payload[&quot;id&quot;]
+    CREDENTIALS[cred_id] = Dict(
+        :public_key_cose =&gt; WebAuthn.base64urlencode(pkbytes),
+        :sign_count =&gt; 0,
+        :username =&gt; username
+    )
+    return HTTP.Response(200, [&quot;Content-Type&quot; =&gt; &quot;application/json&quot;],
+        JSON3.write(Dict(&quot;ok&quot; =&gt; true, &quot;username&quot; =&gt; username)))
+end
+HTTP.register!(router, &quot;POST&quot;, &quot;/webauthn/register&quot;, serve_regfinish)
+
+# Login options endpoint (now always records challenge per credential)
+function serve_loginoptions(req)
+    q = HTTP.queryparams(req)
+    username = get(q, &quot;username&quot;, &quot;&quot;)
+    allow_ids = String[]
+    if !isempty(username)
+        allow_ids = [cid for (cid, c) in CREDENTIALS if get(
+            c, :username, &quot;&quot;) == username]
+        if isempty(allow_ids)
+            allow_ids = String[]
+        end
+    else
+        # usernameless/discoverable: allow ALL credential IDs
+        allow_ids = collect(keys(CREDENTIALS))
+    end
+    opts = WebAuthn.authentication_options(&quot;localhost&quot;,
+        allow_credential_ids=allow_ids)
+    # Save this challenge to every involved credential:
+    for cid in allow_ids
+        CREDENTIALS[cid][:challenge] = opts[&quot;challenge&quot;]
+    end
+    return HTTP.Response(200, [&quot;Content-Type&quot; =&gt; &quot;application/json&quot;],
+        JSON3.write(merge(opts, Dict(&quot;username&quot; =&gt; username))))
+end
+HTTP.register!(router, &quot;GET&quot;, &quot;/webauthn/options/login&quot;, serve_loginoptions)
+
+# Login finalize endpoint (challenge fetched from credential now)
+function serve_loginfinish(req)
+    payload = JSON3.read(String(req.body))
+    credid = payload[&quot;id&quot;]
+    if !haskey(CREDENTIALS, credid)
+        return HTTP.Response(403, [&quot;Content-Type&quot; =&gt; &quot;text/plain&quot;],
+            &quot;Unknown credential&quot;)
+    end
+    cred = CREDENTIALS[credid]
+    chal = get(cred, :challenge, nothing)
+    if chal === nothing
+        return HTTP.Response(400, [&quot;Content-Type&quot; =&gt; &quot;text/plain&quot;],
+            &quot;No challenge issued for this credential&quot;)
+    end
+    if !WebAuthn.verify_challenge(payload[&quot;response&quot;][&quot;clientDataJSON&quot;], chal)
+        return HTTP.Response(400, [&quot;Content-Type&quot; =&gt; &quot;text/plain&quot;],
+            &quot;Challenge fail&quot;)
+    end
+    pubkey = WebAuthn.cose_key_parse(
+        CBOR.decode(WebAuthn.base64urldecode(cred[:public_key_cose])))
+        ad = WebAuthn.base64urldecode(payload[&quot;response&quot;][&quot;authenticatorData&quot;])
+    cdj = WebAuthn.base64urldecode(payload[&quot;response&quot;][&quot;clientDataJSON&quot;])
+    sig = WebAuthn.base64urldecode(payload[&quot;response&quot;][&quot;signature&quot;])
+    cdj_dict = WebAuthn.parse_clientdata_json(payload[&quot;response&quot;][&quot;clientDataJSON&quot;])
+    ok = WebAuthn.verify_webauthn_signature(pubkey, ad, cdj, sig)
+    username = get(cred, :username, &quot;&quot;)
+    if !ok
+        return HTTP.Response(403, [&quot;Content-Type&quot; =&gt; &quot;text/plain&quot;], &quot;Bad signature&quot;)
+    end
+    verify_origin(cdj_dict, &quot;http://localhost:8000&quot;)
+    old_signcount = cred[:sign_count]
+    new_signcount = reinterpret(UInt32, ad[34:37])[1]
+    enforce_signcount(old_signcount, new_signcount)
+    cred[:sign_count] = new_signcount
+    enforce_up_uv(ad; require_uv=false)
+    return HTTP.Response(200, [&quot;Content-Type&quot; =&gt; &quot;application/json&quot;],
+        JSON3.write(Dict(&quot;ok&quot; =&gt; true, &quot;username&quot; =&gt; username,
+            &quot;redirect&quot; =&gt; &quot;/login_success?username=$username&quot;))
+    )
+end
+HTTP.register!(router, &quot;POST&quot;, &quot;/webauthn/login&quot;, serve_loginfinish)
+
+srv = HTTP.serve!(router, Sockets.localhost, 8000)</code></pre><hr/><h2 id="Contributions"><a class="docs-heading-anchor" href="#Contributions">Contributions</a><a id="Contributions-1"></a><a class="docs-heading-anchor-permalink" href="#Contributions" title="Permalink"></a></h2><p>Questions, issues, and PRs welcome!   See <a href="https://github.com/andreeco/WebAuthn.jl/issues">WebAuthn.jl on GitHub</a>.</p><hr/><h2 id="License"><a class="docs-heading-anchor" href="#License">License</a><a id="License-1"></a><a class="docs-heading-anchor-permalink" href="#License" title="Permalink"></a></h2><p>Licensed under the MIT License. See  <a href="https://github.com/andreeco/WebAuthn.jl/blob/main/LICENSE">LICENSE</a> for details.</p><hr/></article><nav class="docs-footer"><a class="docs-footer-nextpage" href="api/">API »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Thursday 2 October 2025 11:00">Thursday 2 October 2025</span>. Using Julia version 1.11.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
