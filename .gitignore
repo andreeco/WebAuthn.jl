@@ -4,8 +4,14 @@
 /Manifest*.toml
 /docs/Manifest*.toml
 /docs/build/
-/test
-/test/spec/examples
+
+/test/assertion
+/test/attestation
+/test/helpers
+/test/policy_security
 /test/spec
+/test/unit
+/test/vectors
+/test/troubleshooting
 /test/vectors/official/webauthn-prf-test-vectors_modified.py
 /test/vectors/official/webauthn-test-vectors_modified.py

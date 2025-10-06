@@ -5,7 +5,6 @@
 [![Build Status](https://github.com/andreeco/WebAuthn.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/andreeco/WebAuthn.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Coverage](https://codecov.io/gh/andreeco/WebAuthn.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/andreeco/WebAuthn.jl)
 
-
 [WebAuthn.jl](https://github.com/andreeco/WebAuthn.jl) brings passkey and FIDO2/WebAuthn authentication to Julia web servers.  
 It provides end-to-end functions for registration and login, CBOR/COSE key parsing, challenge signing, signature verification, and PEM export.
 
