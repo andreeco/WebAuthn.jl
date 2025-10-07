@@ -5,13 +5,10 @@
 /docs/Manifest*.toml
 /docs/build/
 
-/test/assertion
-/test/attestation
-/test/helpers
-/test/policy_security
+#/test/assertion
+#/test/attestation
+#/test/helpers
+#/test/policy_security
 /test/spec
-/test/unit
-/test/vectors
-/test/troubleshooting
-/test/vectors/official/webauthn-prf-test-vectors_modified.py
-/test/vectors/official/webauthn-test-vectors_modified.py
+#/test/unit
+#/test/vectors
