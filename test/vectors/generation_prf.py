@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: MIT
+
+# MIT, all rights reserved.
 
 import os
 from pathlib import Path
