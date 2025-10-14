@@ -26,5 +26,6 @@ include("clientdata.jl")
 include("signature.jl")
 include("attestation.jl")
 include("assets.jl")
+include("highlevel.jl")
 
 end  # module WebAuthn
