@@ -26,7 +26,7 @@ end
 
 # SPEC_ID: §5.8.5-COSEAlgorithmIdentifier
 # SPEC_ID: §3-COSE-EC2-crv-x-y-Length
-@testset "extract_pubkey_pem_from_der & extract_pubkey_from_der_raw" begin
+@testset "der_to_pem & extract_pubkey_from_der_raw" begin
     # EC2 P-256 public key
     real_pem = raw"""
     -----BEGIN PUBLIC KEY-----
@@ -36,7 +36,7 @@ end
     """
     der = WebAuthn.pem_to_der(real_pem)
     @test isa(der, Vector{UInt8})
-    pem = WebAuthn.extract_pubkey_pem_from_der(der)
+    pem = WebAuthn.der_to_pem(der, "PUBLIC KEY")
     @test pem !== nothing && occursin("BEGIN PUBLIC KEY", pem)
     key = WebAuthn.extract_pubkey_from_der_raw(der)
     @test key isa WebAuthn.EC2PublicKey

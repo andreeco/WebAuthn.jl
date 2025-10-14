@@ -285,37 +285,6 @@ characters and adding header and footer lines for the given type.
 
 # Examples
 
-```jldoctests
-julia> using WebAuthn
-
-julia> pem = WebAuthn.der_to_pem(rand(UInt8, 90), "PUBLIC KEY");
-```
-
-See also: [`cose_key_to_pem`](@ref).
-"""
-function der_to_pem(derbytes::Vector{UInt8}, label::String="CERTIFICATE")
-    b64 = base64encode(derbytes)
-    lines = ["-----BEGIN $label-----"]
-    for i = 1:64:length(b64)
-        push!(lines, b64[i:min(i + 63, end)])
-    end
-    push!(lines, "-----END $label-----\n")
-    join(lines, "\n")
-end
-
-"""
-    extract_pubkey_pem_from_der(der::Vector{UInt8})::String
-
-Wrap raw DER bytes as PEM, labeling as PUBLIC KEY. 
-
-Does not validate or parse certificate structure.
-
-Searches the provided DER bytes for a known EC OID and extracts the embedded
-public key, returning it as a PEM-encoded `SubjectPublicKeyInfo` suitable for
-cryptographic libraries.
-
-# Examples
-
 ```jldoctest
 julia> using WebAuthn
 
@@ -329,19 +298,19 @@ julia> der = [
            0xc3,0x63,0x1e,0xb9,0xa9,0x3f,0xfb,0x66,0x32,0xfa,0x3a,0x49,0x01,
            0x01 ];
 
-julia> pem = WebAuthn.extract_pubkey_pem_from_der(der);
+julia> pem = WebAuthn.der_to_pem(der);
 ```
 
-See also: [`cose_key_to_pem`](@ref) and [`der_to_pem`](@ref).
+See also: [`cose_key_to_pem`](@ref).
 """
-function extract_pubkey_pem_from_der(der::Vector{UInt8})::String
-    b64 = base64encode(der)
-    lines = ["-----BEGIN PUBLIC KEY-----"]
+function der_to_pem(derbytes::Vector{UInt8}, label::String="CERTIFICATE")
+    b64 = base64encode(derbytes)
+    lines = ["-----BEGIN $label-----"]
     for i = 1:64:length(b64)
         push!(lines, b64[i:min(i + 63, end)])
     end
-    push!(lines, "-----END PUBLIC KEY-----\n")
-    return join(lines, "\n")
+    push!(lines, "-----END $label-----\n")
+    join(lines, "\n")
 end
 
 function extract_pubkey_from_der_raw(der::Vector{UInt8})
