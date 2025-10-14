@@ -6,7 +6,7 @@ Also the annotations of SPEC_ID must be checked!
 "
 
 #include("helpers/asn1.jl")
-
+#=
 const VECTORS_DIR = joinpath(dirname(pathof(WebAuthn)),
     "..", "test", "vectors")
 
@@ -20,6 +20,7 @@ function load_vector(parts::AbstractString...)
         return read(f, String) # UTF-8 String
     end
 end
+=#
 
 function include_all_jl(dir)
     for f in readdir(dir; join=true)

@@ -1,3 +1,5 @@
+export load_vector, VECTORS_DIR
+
 const _ASSET_DIR = joinpath(@__DIR__, "..", "artifacts")
 
 """
@@ -15,4 +17,18 @@ with WebAuthn.jl. Example: `WebAuthn.asset("webauthn_register.js")`
 """
 function asset(name::AbstractString)
     read(asset_path(name), String)
+end
+
+const VECTORS_DIR = joinpath(dirname(pathof(WebAuthn)),
+    "..", "test", "vectors")
+
+function load_vector(parts::AbstractString...)
+    f = joinpath(VECTORS_DIR, parts...)
+    @assert isfile(f) "$f not found"
+    ext = lowercase(splitext(f)[2])
+    if ext in (".der", ".cbor", ".bin")
+        return read(f) # Vector{UInt8}
+    else
+        return read(f, String) # UTF-8 String
+    end
 end

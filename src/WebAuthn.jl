@@ -16,7 +16,7 @@ module WebAuthn
 @warn "The package is currently not production ready and needs review."
 
 using Base64, Random, CBOR, JSON3, SHA, OpenSSL_jll, Dates, UUIDs, Sodium
-#include("LibFido2.jl")
+include("LibFido2.jl")
 include("base64url.jl")
 include("challenge.jl")
 include("cose_keys.jl")
