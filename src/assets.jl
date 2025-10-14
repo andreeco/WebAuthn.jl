@@ -1,5 +1,3 @@
-export load_vector, VECTORS_DIR
-
 const _ASSET_DIR = joinpath(@__DIR__, "..", "artifacts")
 
 """
