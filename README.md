@@ -68,6 +68,8 @@ A passkey (credential) is generated and stored securely on the user device; **pr
    - (Optional) Validate attestation: `verify_attestation_object`  
    - Store credential ID & public key for future logins.
 
+For a simpler, secure approach, call `verify_registration_response` to run all checks at once!
+
 ---
 
 ### Authentication Workflow
@@ -89,16 +91,19 @@ A passkey (credential) is generated and stored securely on the user device; **pr
    - Signature check: `verify_webauthn_signature`  
    - (Optional) Enforce signCount, user presence, user verification
 
+Or use `verify_authentication_response` for the recommended unified approach.
+
 ---
 
 ### Core Functions by Flow
 
-| Phase          | Step              | WebAuthn.jl Functions                                                    |
-|----------------|-------------------|--------------------------------------------------------------------------|
-| Registration   | Build options     | `registration_options`                                           |
-|                | Parse & verify    | `parse_attestation_object`, `parse_clientdata_json`,`verify_challenge`, `extract_credential_public_key`, `cose_key_parse`, `verify_attestation_object` |
-| Authentication | Build options     | `authentication_options`                                         |
-|                | Parse & verify    | `parse_assertion`, `parse_clientdata_json`, `verify_challenge`, `verify_webauthn_signature`                         |
+
+| Phase          | Step            | WebAuthn.jl Functions                                                                                                         |
+|----------------|-----------------|------------------------------------------------------------------------------------------------------------------------------|
+| Registration   | Build options   | `registration_options`                                                                                                        |
+|                | Parse & verify  | `verify_registration_response`, or: `parse_attestation_object`, `parse_clientdata_json`, `verify_challenge`, `extract_credential_public_key`, `cose_key_parse`, `verify_attestation_object` |
+| Authentication | Build options   | `authentication_options`                                                                                                      |
+|                | Parse & verify  | `verify_authentication_response`, or: `parse_assertion`, `parse_clientdata_json`, `verify_challenge`, `verify_webauthn_signature`                    |                |
 
 _See also:_ `cose_key_to_pem` for PEM export/interoperation.
 
@@ -137,7 +142,166 @@ passkeys in memory.
 
 ---
 
-## Full Example Server
+## Full Example Server High Level
+
+After installing the dependencies, you can copy-paste this code.
+
+```julia
+using HTTP, Sockets, JSON3, WebAuthn, Random, CBOR
+
+const USERS = Dict{String,Dict{Symbol,Any}}()
+const CREDENTIALS = Dict{String,Dict{Symbol,Any}}()
+router = HTTP.Router()
+
+function serve_login_success(req)
+    params = HTTP.queryparams(req)
+    username = get(params, "username", "")
+    html = replace(WebAuthn.asset("login_success.html"),
+        "{{USERNAME}}" => HTTP.escapehtml(username))
+    return HTTP.Response(200, ["Content-Type" => "text/html"], html)
+end
+HTTP.register!(router, "GET", "/login_success", serve_login_success)
+
+function serve_index(req)
+    HTTP.Response(200, ["Content-Type" => "text/html"],
+        WebAuthn.asset("index.html"))
+end
+HTTP.register!(router, "GET", "/", serve_index)
+
+function serve_webauthn_register_js(req)
+    HTTP.Response(200, ["Content-Type" => "application/javascript"],
+        WebAuthn.asset("webauthn_register.js"))
+end
+HTTP.register!(router, "GET", "/webauthn_register.js", 
+serve_webauthn_register_js)
+
+function serve_webauthn_login_js(req)
+    HTTP.Response(200, ["Content-Type" => "application/javascript"],
+        WebAuthn.asset("webauthn_login.js"))
+end
+HTTP.register!(router, "GET", "/webauthn_login.js", serve_webauthn_login_js)
+
+function serve_regoptions(req)
+    q = HTTP.queryparams(req)
+    username = get(q, "username", "")
+    if isempty(username)
+        charset = vcat('A':'Z', 'a':'z', '0':'9')
+        username = join(rand(charset, 8))
+    end
+    opts = WebAuthn.registration_options(
+        "localhost", "Passkey Demo", username, username, 
+        username; exclude_ids=[]
+    )
+    USERS[username] = Dict(:challenge => opts["challenge"])
+    return HTTP.Response(200, ["Content-Type" => "application/json"],
+        JSON3.write(merge(opts, Dict("username" => username))))
+end
+HTTP.register!(router, "GET", "/webauthn/options/register", serve_regoptions)
+
+function serve_regfinish(req)
+    payload = JSON3.read(String(req.body), Dict{String,Any})
+    username = get(payload, "username", "")
+    if isempty(username)
+        return HTTP.Response(400, ["Content-Type" => "text/plain"], 
+        "Missing username")
+    end
+    chal = get(get(USERS, username, Dict{Symbol,Any}()), :challenge, nothing)
+    if chal === nothing
+        return HTTP.Response(400, ["Content-Type" => "text/plain"], 
+        "No challenge for username.")
+    end
+    reg_result = verify_registration_response(
+        payload;
+        expected_challenge=chal,
+        expected_origin="http://localhost:8000"
+    )
+    if !reg_result.ok
+        return HTTP.Response(400, ["Content-Type" => "text/plain"], 
+        "Registration failed: $(reg_result.reason)")
+    end
+
+    pkbytes = extract_credential_public_key(
+        parse_attestation_object(
+            payload["response"]["attestationObject"])["authData"]
+    )
+    CREDENTIALS[reg_result.credential_id] = Dict(
+        :public_key_cose => WebAuthn.base64urlencode(pkbytes),
+        :sign_count => 0,
+        :username => username
+    )
+    return HTTP.Response(200, ["Content-Type" => "application/json"],
+        JSON3.write(Dict("ok" => true, "username" => username)))
+end
+HTTP.register!(router, "POST", "/webauthn/register", serve_regfinish)
+
+function serve_loginoptions(req)
+    q = HTTP.queryparams(req)
+    username = get(q, "username", "")
+    allow_ids = String[]
+    if !isempty(username)
+        allow_ids = [cid for (cid, c) in CREDENTIALS if get(
+            c, :username, "") == username]
+        if isempty(allow_ids)
+            allow_ids = String[]
+        end
+    else
+        allow_ids = collect(keys(CREDENTIALS))
+    end
+    opts = WebAuthn.authentication_options("localhost",
+        allow_credential_ids=allow_ids)
+    for cid in allow_ids
+        CREDENTIALS[cid][:challenge] = opts["challenge"]
+    end
+    return HTTP.Response(200, ["Content-Type" => "application/json"],
+        JSON3.write(merge(opts, Dict("username" => username))))
+end
+HTTP.register!(router, "GET", "/webauthn/options/login", 
+serve_loginoptions)
+
+function serve_loginfinish(req)
+    payload = JSON3.read(String(req.body), Dict{String,Any})
+    credid = payload["id"]
+    if !haskey(CREDENTIALS, credid)
+        return HTTP.Response(403, ["Content-Type" => "text/plain"], 
+        "Unknown credential")
+    end
+    cred = CREDENTIALS[credid]
+    chal = get(cred, :challenge, nothing)
+    if chal === nothing
+        return HTTP.Response(400, ["Content-Type" => "text/plain"], 
+        "No challenge issued for this credential")
+    end
+    pubkey_cose_bytes = WebAuthn.base64urldecode(cred[:public_key_cose])
+    pubkey_dict = CBOR.decode(pubkey_cose_bytes)
+    pubkey = WebAuthn.cose_key_parse(pubkey_dict)
+    authn_result = verify_authentication_response(
+        payload;
+        public_key=pubkey,
+        expected_challenge=chal,
+        expected_origin="http://localhost:8000",
+        previous_signcount=cred[:sign_count],
+        require_uv=true
+    )
+    if !authn_result.ok
+        return HTTP.Response(403, ["Content-Type" => "text/plain"], 
+        "Authentication failed: $(authn_result.reason)")
+    end
+    cred[:sign_count] = authn_result.new_signcount
+    return HTTP.Response(200, ["Content-Type" => "application/json"],
+        JSON3.write(Dict(
+            "ok" => true,
+            "username" => get(cred, :username, ""),
+            "redirect" => "/login_success?username=$(
+            get(cred, :username, ""))"
+        ))
+    )
+end
+HTTP.register!(router, "POST", "/webauthn/login", serve_loginfinish)
+
+srv = HTTP.serve!(router, Sockets.localhost, 8000)
+```
+
+## Full Example Server Low Level
 
 After installing the dependencies, you can copy-paste this code.
 
@@ -176,7 +340,6 @@ function serve_webauthn_login_js(req)
 end
 HTTP.register!(router, "GET", "/webauthn_login.js", serve_webauthn_login_js)
 
-# Registration options endpoint (browser calls before registration)
 function serve_regoptions(req)
     q = HTTP.queryparams(req)
     username = get(q, "username", "")
@@ -194,7 +357,6 @@ function serve_regoptions(req)
 end
 HTTP.register!(router, "GET", "/webauthn/options/register", serve_regoptions)
 
-# Registration finalize endpoint
 function serve_regfinish(req)
     payload = JSON3.read(String(req.body))
     username = get(payload, "username", "")
@@ -226,7 +388,6 @@ function serve_regfinish(req)
 end
 HTTP.register!(router, "POST", "/webauthn/register", serve_regfinish)
 
-# Login options endpoint (now always records challenge per credential)
 function serve_loginoptions(req)
     q = HTTP.queryparams(req)
     username = get(q, "username", "")
@@ -238,12 +399,10 @@ function serve_loginoptions(req)
             allow_ids = String[]
         end
     else
-        # usernameless/discoverable: allow ALL credential IDs
         allow_ids = collect(keys(CREDENTIALS))
     end
     opts = WebAuthn.authentication_options("localhost",
         allow_credential_ids=allow_ids)
-    # Save this challenge to every involved credential:
     for cid in allow_ids
         CREDENTIALS[cid][:challenge] = opts["challenge"]
     end
@@ -252,7 +411,6 @@ function serve_loginoptions(req)
 end
 HTTP.register!(router, "GET", "/webauthn/options/login", serve_loginoptions)
 
-# Login finalize endpoint (challenge fetched from credential now)
 function serve_loginfinish(req)
     payload = JSON3.read(String(req.body))
     credid = payload["id"]
