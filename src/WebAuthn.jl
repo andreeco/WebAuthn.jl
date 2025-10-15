@@ -13,7 +13,7 @@ verification of registration and authentication responses.
 """
 module WebAuthn
 
-@warn "The package is currently not production ready and needs review."
+# The package is currently not production ready and needs review.
 
 using Base64, Random, CBOR, JSON3, SHA, OpenSSL_jll, Dates, UUIDs, Sodium
 
