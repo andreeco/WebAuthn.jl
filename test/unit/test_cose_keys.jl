@@ -1,24 +1,8 @@
-# test_cose_keys.jl
-# -----------------------------------------------------------------------------
-# Purpose: Strict parsing and field validation for COSE_Key (RFC8152 §13),
-# covering P-256 (EC2), RSA, OKP(Ed25519), and malformed/canonicality
-#
-# SPEC_ID: §5.8.5-COSEAlgorithmIdentifier
-# SPEC_ID: §3-COSE-EC2-crv-x-y-Length
-# SPEC_ID: §3-COSE-OKP-Ed25519-crv-alg-x
-# SPEC_ID: §3-COSE-RSAPublicKey-Fields
-# SPEC_ID: §3-CBOR-Reject-Duplicate-Keys
-# SPEC_ID: §3-CBOR-Canonical-Encode
-#
 using Test, WebAuthn, CBOR
 
-# SPEC_ID: §5.8.5-COSEAlgorithmIdentifier
-# SPEC_ID: §3-COSE-EC2-crv-x-y-Length
-# SPEC_ID: §3-COSE-Algorithm-Identifier
-# SPEC_ID: §5.2.1-getPublicKey
-# SPEC_ID: §5.8.2-PublicKeyCredentialType
 @testset "EC2 Good" begin
-    cose_bin = load_vector("vectors_ec2_none", "registration", "attestationObject.cbor")
+    cose_bin = load_vector("vectors_ec2_none", "registration", 
+    "attestationObject.cbor")
     # Parse attestationObject and extract COSE_Key
     attobj = CBOR.decode(cose_bin)
     authData = attobj["authData"]
@@ -34,10 +18,9 @@ using Test, WebAuthn, CBOR
     @test occursin("BEGIN PUBLIC KEY", pem)
 end
 
-# SPEC_ID: §5.8.5-COSEAlgorithmIdentifier
-# SPEC_ID: §3-COSE-OKP-Ed25519-crv-alg-x
 @testset "OKP Ed25519 Good" begin
-    cose_bin = load_vector("vectors_ed25519_packed", "registration", "attestationObject.cbor")
+    cose_bin = load_vector("vectors_ed25519_packed", "registration", 
+    "attestationObject.cbor")
     attobj = CBOR.decode(cose_bin)
     authData = attobj["authData"]
     pkoff = 37 + 16 + 2 + ((Int(authData[37+16+1])<<8)|
@@ -52,10 +35,9 @@ end
     @test occursin("BEGIN PUBLIC KEY", pem)
 end
 
-# SPEC_ID: §5.8.5-COSEAlgorithmIdentifier
-# SPEC_ID: §3-COSE-RSAPublicKey-Fields
 @testset "RSA Good" begin
-    cose_bin = load_vector("vectors_rsa_packed", "registration", "attestationObject.cbor")
+    cose_bin = load_vector("vectors_rsa_packed", "registration", 
+    "attestationObject.cbor")
     attobj = CBOR.decode(cose_bin)
     authData = attobj["authData"]
     pkoff = 37 + 16 + 2 + ((Int(authData[37+16+1])<<8)|
@@ -68,7 +50,6 @@ end
     @test occursin("BEGIN PUBLIC KEY", pem)
 end
 
-# SPEC_ID: §3-COSE-EC2-crv-x-y-Length
 @testset "EC2 BAD (missing y)" begin
     cose_b = UInt8[164, 1, 2, 3, 38, 32, 1, 33, 88, 32,
         83, 171, 141, 121, 88, 18, 46, 173, 166, 127, 160, 40,
@@ -78,7 +59,6 @@ end
     @test_throws Exception cose_key_parse(cose)
 end
 
-# SPEC_ID: §3-CBOR-Canonical-Encode
 @testset "EC2 BAD (Extra unknown field)" begin
     cose_b = UInt8[166,1,2,3,38,32,1,33,88,32,83,171,141,121,88,
         18,46,173,166,127,160,40,92,178,249,182,70,196,88,55,61,
@@ -92,8 +72,6 @@ end
     # Or document code's leniency.
 end
 
-# SPEC_ID: §3-COSE-OKP-Ed25519-crv-alg-x
-# SPEC_ID: §3-COSE-Unknown-KTY
 @testset "OKP BAD (alg=-999)" begin
     cose_b = UInt8[164,1,1,3,57,3,230,32,6,33,88,32,33,245,65,
         233,205,194,180,45,83,65,7,159,184,66,190,92,78,231,70,
@@ -102,7 +80,6 @@ end
     @test_throws Exception cose_key_parse(cose)
 end
 
-# SPEC_ID: §3-CBOR-Reject-Duplicate-Keys
 @testset "MALFORMED CBOR: Duplicate key in COSE_Key" begin
     cose_dup = UInt8[
         165,1,2,3,38,32,1,33,88,32,116,234,117,40,132,150,197,21,
@@ -121,7 +98,6 @@ end
     end
 end
 
-# SPEC_ID: §3-CBOR-Canonical-Encode
 @testset "MALFORMED CBOR: Non-canonical key order in COSE_Key" begin
     # noncanonical order: hand-crafted for negative coverage
     cose_nc = UInt8[
@@ -141,7 +117,6 @@ end
     @test_broken !parse_succeeded
 end
 
-# SPEC_ID: §3-COSE-EC2-crv-x-y-Length
 @testset "MALFORMED CBOR: Truncated buffer" begin
     # last 10 bytes cut off
     cose_b = UInt8[

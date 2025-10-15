@@ -1,8 +1,5 @@
-# test_cose_keys_native_pem.jl
-
 using Test, WebAuthn
 
-# SPEC_ID: §5.8.5-COSEAlgorithmIdentifier
 @testset "pem_to_der utility" begin
     # Minimal PEM to DER conversion
     pem = "-----BEGIN PUBLIC KEY-----\nQUJDRA==\n-----END PUBLIC KEY-----"
@@ -13,7 +10,6 @@ using Test, WebAuthn
     @test_throws ErrorException WebAuthn.pem_to_der(badpem)
 end
 
-# SPEC_ID: §5.8.5-COSEAlgorithmIdentifier
 @testset "der_to_pem / pem_to_der roundtrip" begin
     # DER for INTEGER(5)
     der = UInt8[0x30, 0x03, 0x02, 0x01, 0x05]
@@ -24,8 +20,6 @@ end
     @test der2 == der
 end
 
-# SPEC_ID: §5.8.5-COSEAlgorithmIdentifier
-# SPEC_ID: §3-COSE-EC2-crv-x-y-Length
 @testset "der_to_pem & extract_pubkey_from_der_raw" begin
     # EC2 P-256 public key
     real_pem = raw"""
@@ -44,19 +38,16 @@ end
     @test length(key.y) == 32
 end
 
-# SPEC_ID: §5.2.2-AuthenticatorAssertionResponse
 @testset "parse_assertion" begin
     ad = UInt8[1, 2, 3, 4, 5]
     sig = UInt8[0xAA, 0xBB, 0xCC]
     b64_ad = WebAuthn.base64urlencode(ad)
     b64_sig = WebAuthn.base64urlencode(sig)
-    # SPEC_ID: §6.3.3-authenticatorGetAssertion
     ad2, sig2 = WebAuthn.parse_assertion(b64_ad, b64_sig)
     @test ad2 == ad
     @test sig2 == sig
 end
 
-# SPEC_ID: §3-COSE-EC2-crv-x-y-Length
 @testset "parse_ec_pem_xy: Extract EC P-256 coordinates" begin
     p256_pem = """
     -----BEGIN PUBLIC KEY-----
@@ -73,7 +64,6 @@ end
     @test length(y) == 32
 end
 
-# SPEC_ID: §3-COSE-RSAPublicKey-Fields
 @testset "parse_rsa_pem_ne: Extract RSA modulus/exponent" begin
     rsa_pem = """
     -----BEGIN PUBLIC KEY-----
@@ -94,7 +84,6 @@ end
     @test length(n) > 200
 end
 
-# SPEC_ID: §3-COSE-OKP-Ed25519-crv-alg-x
 @testset "parse_ed25519_pem_x: Extract Ed25519 x coordinate" begin
     edpem = """
     -----BEGIN PUBLIC KEY-----
@@ -107,7 +96,6 @@ end
     @test length(x) == 32
 end
 
-# SPEC_ID: §3-COSE-EC2-crv-x-y-Length
 @testset "parse_ec_pem_xy: Bad input errors" begin
     @test_throws Exception parse_ec_pem_xy("")
     badpem = """
@@ -118,7 +106,6 @@ end
     @test_throws Exception parse_ec_pem_xy(badpem)
 end
 
-# SPEC_ID: §3-COSE-RSAPublicKey-Fields
 @testset "parse_rsa_pem_ne: Bad input errors" begin
     @test_throws Exception parse_rsa_pem_ne("")
     # Ed25519 is not RSA so must fail
@@ -130,7 +117,6 @@ end
     @test_throws Exception parse_rsa_pem_ne(edpem)
 end
 
-# SPEC_ID: §3-COSE-OKP-Ed25519-crv-alg-x
 @testset "parse_ed25519_pem_x: Bad input errors" begin
     @test_throws Exception parse_ed25519_pem_x("")
     rsa_pem = """
@@ -147,8 +133,6 @@ end
     @test_throws Exception parse_ed25519_pem_x(rsa_pem)
 end
 
-# SPEC_ID: §5.8.5-COSEAlgorithmIdentifier
-# SPEC_ID: §3-COSE-OKP-Ed25519-crv-alg-x
 @testset "verify_webauthn_signature(PEM::String) fallback for Ed25519" begin
     pk = Vector{UInt8}(undef, Sodium.crypto_sign_PUBLICKEYBYTES)
     sk = Vector{UInt8}(undef, Sodium.crypto_sign_SECRETKEYBYTES)

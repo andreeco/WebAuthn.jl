@@ -1,9 +1,3 @@
-# test_counter_clone.jl
-# ---------------------------------------------
-# Purpose: Ensure signCount strictly increases (anti-clone), as per spec.
-# SPEC_ID: §6.1.1-SignatureCounter-Detection
-# SPEC_ID: §7.2-Authentication-Verify-signCount-Monotonicity
-#
 using Test, WebAuthn
 
 function signcount_is_valid(old::Integer, new::Integer)
@@ -18,12 +12,8 @@ function signcount_is_valid(old::Integer, new::Integer)
     end
 end
 
-# SPEC_ID: §6.1.1-SignatureCounter-Detection
-# SPEC_ID: §7.1-Registration-Verify-signCount
-# SPEC_ID: §7.2-Authentication-Verify-signCount-Monotonicity
-# SPEC_ID: §7.2-Authentication-Attack-Mitigations
 @testset "signCount/Clone Detector" begin
-    # First-time registration: any count (even zero) legal (spec: §6.1.1)
+    # First-time registration: any count (even zero) legal
     @test signcount_is_valid(0, 0)
     @test signcount_is_valid(0, 1)
     @test signcount_is_valid(0, 50000)

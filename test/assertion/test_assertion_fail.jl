@@ -1,16 +1,5 @@
-# test_assertion_fail.jl
-# Purpose: Negative-path assertion test for all signature, challenge, origin,
-# and type errors.
-# SPEC_ID: §7.2-Authentication-Verify-Challenge
-# SPEC_ID: §7.2-Authentication-Verify-Origin
-# SPEC_ID: §7.2-Authentication-Verify-ClientData-Type
-# SPEC_ID: §7.2-Authentication-Verify-Signature
-
 using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
 
-# SPEC_ID: §5.1.4.3-Get-Request-Exceptions
-# SPEC_ID: §5.6-AbortSignal-Behavior
-# SPEC_ID: §7.2-Authentication-Unknown-Credential-Behavior
 @testset "Assertion Negative/Fail (Ed25519/OKP synthetic)" begin
     # -- Generate known-good keypair --
     pk = Vector{UInt8}(undef, Sodium.crypto_sign_PUBLICKEYBYTES)
@@ -32,7 +21,6 @@ using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
     @test Sodium.crypto_sign_detached(sig, sl, sign_input,
         length(sign_input), sk) == 0
 
-    # SPEC_ID: §7.2-Authentication-Verify-Signature
     @test verify_webauthn_signature(key, authData,
         Vector{UInt8}(good_clientData), sig)
 
@@ -42,7 +30,6 @@ using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
         "origin" => rp_origin,
         "type" => "webauthn.get"
     ))
-    # SPEC_ID: §7.2-Authentication-Verify-Challenge
     @test !verify_webauthn_signature(key, authData,
         Vector{UInt8}(tampered_cd), sig)
 
@@ -52,7 +39,6 @@ using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
         "origin" => "https://evil-unit.example",
         "type" => "webauthn.get"
     ))
-    # SPEC_ID: §7.2-Authentication-Verify-Origin
     @test !verify_webauthn_signature(key, authData,
         Vector{UInt8}(tampered_cd2), sig)
 
@@ -62,7 +48,6 @@ using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
         "origin" => rp_origin,
         "type" => "webauthn.create"
     ))
-    # SPEC_ID: §7.2-Authentication-Verify-ClientData-Type
     @test !verify_webauthn_signature(key, authData,
         Vector{UInt8}(cd_wrongtype), sig)
 
@@ -102,11 +87,15 @@ end
 
 @testset "Assertion Negative/Fail (packed ES256)" begin
     # Use positive vector, then mutate to produce negatives
-    ad = load_vector("vectors_ec2_packed", "authentication", "authenticatorData.bin")
-    cdj = load_vector("vectors_ec2_packed", "authentication", "clientDataJSON.bin")
-    sig = load_vector("vectors_ec2_packed", "authentication", "signature.bin")
+    ad = load_vector("vectors_ec2_packed", "authentication", 
+    "authenticatorData.bin")
+    cdj = load_vector("vectors_ec2_packed", "authentication", 
+    "clientDataJSON.bin")
+    sig = load_vector("vectors_ec2_packed", "authentication", 
+    "signature.bin")
     # Extract COSE_Key from attestation object
-    attobj = CBOR.decode(load_vector("vectors_ec2_packed", "registration", "attestationObject.cbor"))
+    attobj = CBOR.decode(load_vector("vectors_ec2_packed", 
+    "registration", "attestationObject.cbor"))
     authDataReg = attobj["authData"]
     pkoff = 37 + 16 + 2 + ((Int(authDataReg[37+16+1]) << 8) |
                            Int(authDataReg[37+16+2]))
@@ -136,7 +125,8 @@ end
 
     # 5: Bad key (random pubkey): accept either false or error
     try
-        cose_bad = Dict(1=>2, 3=>-7, -1=>1, -2=>rand(UInt8, 32), -3=>rand(UInt8, 32))
+        cose_bad = Dict(1=>2, 3=>-7, -1=>1, 
+        -2=>rand(UInt8, 32), -3=>rand(UInt8, 32))
         key_bad = cose_key_parse(cose_bad)
         # Signature check must fail
         @test !verify_webauthn_signature(key_bad, ad, cdj, sig)
@@ -147,7 +137,6 @@ end
     end
 end
 
-# SPEC_ID: §7.2-Authentication-Verify-Signature
 @testset "Signature check stub" begin
     pubkey_fake = "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n"
     msg = rand(UInt8, 16)

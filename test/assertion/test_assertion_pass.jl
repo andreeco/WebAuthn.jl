@@ -1,19 +1,16 @@
 using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
 
-# SPEC_ID: §5.2.2-AuthenticatorAssertionResponse
-# SPEC_ID: §6.3.3-authenticatorGetAssertion
-# SPEC_ID: §7.2-Authentication-Verify-Signature
-# SPEC_ID: §7.2-Authentication-Options-Structure
-# SPEC_ID: §13-All-Security-Principles
-# SPEC_ID: §13.1-CredentialID-Unsigned
-# SPEC_ID: §5.1-id-rawId-Consistency
 @testset "EC2/ES256 assertion pass" begin
     # Use testvector for ES256 assertion
-    ad = load_vector("vectors_ec2_packed", "authentication", "authenticatorData.bin")
-    cdj = load_vector("vectors_ec2_packed", "authentication", "clientDataJSON.bin")
-    sig = load_vector("vectors_ec2_packed", "authentication", "signature.bin")
+    ad = load_vector("vectors_ec2_packed", "authentication", 
+    "authenticatorData.bin")
+    cdj = load_vector("vectors_ec2_packed", "authentication", 
+    "clientDataJSON.bin")
+    sig = load_vector("vectors_ec2_packed", "authentication", 
+    "signature.bin")
     # Parse COSE_Key for this credential (extract from attestationObject)
-    attobj = CBOR.decode(load_vector("vectors_ec2_packed", "registration", "attestationObject.cbor"))
+    attobj = CBOR.decode(load_vector("vectors_ec2_packed", "registration", 
+    "attestationObject.cbor"))
     authDataReg = attobj["authData"]
     pkoff = 37 + 16 + 2 + ((Int(authDataReg[37+16+1])<<8) |
                            Int(authDataReg[37+16+2]))
@@ -29,12 +26,15 @@ using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
     @test !verify_webauthn_signature(key, ad, cdj, sig2)
 end
 
-# SPEC_ID: §7.2-Authentication-Verify-Signature
 @testset "RSA/RS256 assertion pass" begin
-    ad = load_vector("vectors_rsa_packed", "authentication", "authenticatorData.bin")
-    cdj = load_vector("vectors_rsa_packed", "authentication", "clientDataJSON.bin")
-    sig = load_vector("vectors_rsa_packed", "authentication", "signature.bin")
-    attobj = CBOR.decode(load_vector("vectors_rsa_packed", "registration", "attestationObject.cbor"))
+    ad = load_vector("vectors_rsa_packed", "authentication", 
+    "authenticatorData.bin")
+    cdj = load_vector("vectors_rsa_packed", "authentication", 
+    "clientDataJSON.bin")
+    sig = load_vector("vectors_rsa_packed", "authentication", 
+    "signature.bin")
+    attobj = CBOR.decode(load_vector("vectors_rsa_packed", 
+    "registration", "attestationObject.cbor"))
     authDataReg = attobj["authData"]
     pkoff = 37+16+2+((Int(authDataReg[37+16+1])<<8)|
                      Int(authDataReg[37+16+2]))
@@ -48,13 +48,15 @@ end
     @test !verify_webauthn_signature(key, ad, cdj, sig2)
 end
 
-# SPEC_ID: §7.2-Authentication-Verify-Signature
-# SPEC_ID: §13.4.1-RelyingParty-Benefits
 @testset "OKP/Ed25519 assertion pass" begin
-    ad = load_vector("vectors_ed25519_packed", "authentication", "authenticatorData.bin")
-    cdj = load_vector("vectors_ed25519_packed", "authentication", "clientDataJSON.bin")
-    sig = load_vector("vectors_ed25519_packed", "authentication", "signature.bin")
-    attobj = CBOR.decode(load_vector("vectors_ed25519_packed", "registration", "attestationObject.cbor"))
+    ad = load_vector("vectors_ed25519_packed", "authentication", 
+    "authenticatorData.bin")
+    cdj = load_vector("vectors_ed25519_packed", "authentication", 
+    "clientDataJSON.bin")
+    sig = load_vector("vectors_ed25519_packed", "authentication", 
+    "signature.bin")
+    attobj = CBOR.decode(load_vector("vectors_ed25519_packed", 
+    "registration", "attestationObject.cbor"))
     authDataReg = attobj["authData"]
     pkoff = 37 + 16 + 2 + ((Int(authDataReg[37+16+1])<<8)|
                            Int(authDataReg[37+16+2]))
@@ -67,7 +69,6 @@ end
     @test !verify_webauthn_signature(key, ad, cdj, sig2)
 end
 
-# SPEC_ID: §7.2-Authentication-Verify-Signature
 @testset "browser fixed vectors: EC2/ES256, RSA/RS256, Ed25519" begin
     # Pass/fail on fixed vectors (e.g., from docs or browser exports)
     # ES256
@@ -94,7 +95,6 @@ C82+y/BQk/Y32NTnlzVgVWpw75IxyiQuucw0QJbzN+zC8r2IIRek+HDPnA==
     @test !verify_webauthn_signature(pem, badauth, clientDataJSON, sigDER)
 end
 
-# SPEC_ID: §7.1-Registration-Verify-Challenge
 @testset "End-to-end challenge check" begin
     cdj = load_vector("vectors_ec2_none", "registration", "clientDataJSON.bin")
     using JSON3
@@ -104,7 +104,6 @@ end
     @test length(base64urldecode(challenge)) >= 16
 end
 
-# SPEC_ID: §7.2-Authentication-Verify-Signature
 @testset "OKP/Ed25519 end-to-end" begin
     pk = Vector{UInt8}(undef, Sodium.crypto_sign_PUBLICKEYBYTES)
     sk = Vector{UInt8}(undef, Sodium.crypto_sign_SECRETKEYBYTES)
@@ -154,13 +153,17 @@ end
 
 # packed-Ed448 Authentication (expected NotImplemented)
 @testset "packed-Ed448/authentication" begin
-    ad   = load_vector("vectors_ed25519_packed", "authentication", "authenticatorData.bin")
-    cdj  = load_vector("vectors_ed25519_packed", "authentication", "clientDataJSON.bin")
-    sig  = load_vector("vectors_ed25519_packed", "authentication", "signature.bin")
+    ad   = load_vector("vectors_ed25519_packed", "authentication", 
+    "authenticatorData.bin")
+    cdj  = load_vector("vectors_ed25519_packed", "authentication", 
+    "clientDataJSON.bin")
+    sig  = load_vector("vectors_ed25519_packed", "authentication", 
+    "signature.bin")
     # This will raise a NotImplemented/UnsupportedKey
     attobj = WebAuthn.parse_attestation_object(
         WebAuthn.base64urlencode(
-            load_vector("vectors_ed25519_packed", "registration", "attestationObject.cbor")))
+            load_vector("vectors_ed25519_packed", "registration", 
+            "attestationObject.cbor")))
     pkbytes = WebAuthn.extract_credential_public_key(attobj["authData"])
     err = nothing
     try
@@ -181,7 +184,8 @@ end
     sig  = load_vector("vectors_android", "authentication", "signature.bin")
     attobj = WebAuthn.parse_attestation_object(
         WebAuthn.base64urlencode(
-            load_vector("vectors_android", "registration", "attestationObject.cbor")))
+            load_vector("vectors_android", "registration", 
+            "attestationObject.cbor")))
     pkbytes = WebAuthn.extract_credential_public_key(attobj["authData"])
     key = WebAuthn.cose_key_parse(CBOR.decode(pkbytes))
     ok = try
@@ -194,12 +198,16 @@ end
 
 # APPLE-ES256 Authentication
 @testset "apple-ES256/authentication" begin
-    ad   = load_vector("vectors_apple", "authentication", "authenticatorData.bin")
-    cdj  = load_vector("vectors_apple", "authentication", "clientDataJSON.bin")
-    sig  = load_vector("vectors_apple", "authentication", "signature.bin")
+    ad   = load_vector("vectors_apple", "authentication", 
+    "authenticatorData.bin")
+    cdj  = load_vector("vectors_apple", "authentication", 
+    "clientDataJSON.bin")
+    sig  = load_vector("vectors_apple", "authentication", 
+    "signature.bin")
     attobj = WebAuthn.parse_attestation_object(
         WebAuthn.base64urlencode(
-            load_vector("vectors_apple", "registration", "attestationObject.cbor")))
+            load_vector("vectors_apple", "registration", 
+            "attestationObject.cbor")))
     pkbytes = WebAuthn.extract_credential_public_key(attobj["authData"])
     key = WebAuthn.cose_key_parse(CBOR.decode(pkbytes))
     ok = try

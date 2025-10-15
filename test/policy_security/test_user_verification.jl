@@ -1,11 +1,3 @@
-# test_user_verification.jl
-# Purpose: Test UP/UV flags in authenticatorData for compliance with
-# WebAuthn/FIDO2 spec (allowed, forbidden, error on strict requirement, etc).
-# SPEC_ID: §6.1-Flags-UP
-# SPEC_ID: §6.1-Flags-UV
-# SPEC_ID: §7.2-Authentication-Verify-UP-Bit
-# SPEC_ID: §7.2-Authentication-Verify-UV-Bit-if-Required
-
 using Test, SHA, WebAuthn
 
 "Extract flags from WebAuthn authenticatorData; throw if too short"
@@ -30,13 +22,6 @@ function make_authdata_with_flags(rp_id::String, flags::UInt8)
     )
 end
 
-# SPEC_ID: §6.1-Flags-UP
-# SPEC_ID: §6.1-Flags-UV
-# SPEC_ID: §7.2-Authentication-Verify-UP-Bit
-# SPEC_ID: §7.2-Authentication-Verify-UV-Bit-if-Required
-# SPEC_ID: §4-UserVerification-Definition
-# SPEC_ID: §6.2.3-Authentication-Factor-Capability
-# SPEC_ID: §7.1-Registration-Verify-UP-UV-Bits
 @testset "User Presence (UP) and User Verification (UV) Flags" begin
     rp_id = "login.example"
 
@@ -71,16 +56,20 @@ end
         return true
     end
 
-    # --- POSITIVE/PASS CASES ---
+    # POSITIVE/PASS CASES
     @test enforce_up_uv(ad1)                     # UP, no UV required
     @test enforce_up_uv(ad2)                     # UP+UV, always pass
     @test enforce_up_uv(ad2; require_uv=true)    # UP+UV, UV required
 
-    # --- NEGATIVE/FAIL CASES ---
-    @test_throws ArgumentError enforce_up_uv(ad3)                     # Both unset
-    @test_throws ArgumentError enforce_up_uv(ad3; require_uv=true)    # Both unset, UV required
-    @test_throws ArgumentError enforce_up_uv(ad4)                     # UV only, no UP
-    @test_throws ArgumentError enforce_up_uv(ad1; require_uv=true)    # UV missing
+    # NEGATIVE/FAIL CASES
+    # Both unset
+    @test_throws ArgumentError enforce_up_uv(ad3)
+    # Both unset, UV required
+    @test_throws ArgumentError enforce_up_uv(ad3; require_uv=true)
+    # UV only, no UP
+    @test_throws ArgumentError enforce_up_uv(ad4)
+    # UV missing
+    @test_throws ArgumentError enforce_up_uv(ad1; require_uv=true)
 
     # "UserVerification=preferred" (UP is enough, may have extra bits set)
     for f in (0x01, 0x05, 0x45)    # UP + arbitrary higher bits
@@ -96,10 +85,8 @@ end
     @test enforce_up_uv(ad_uv_at; require_uv=true)
 end
 
-# SPEC_ID: §5.8.6-UserVerificationRequirement
 @testset "up/uv enforcement: userVerification=required" begin
     ad_up_uv = make_authdata_with_flags("a", 0x05)
-    # SPEC_ID: §5.8.6-UserVerificationRequirement
     @test enforce_up_uv(ad_up_uv; require_uv=true)
     ad_up = make_authdata_with_flags("a", 0x01)
     @test_throws ArgumentError enforce_up_uv(ad_up; require_uv=true)

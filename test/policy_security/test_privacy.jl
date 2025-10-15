@@ -1,14 +1,5 @@
-# test_privacy.jl
-# Purpose: Ensure privacy, security, no logging of secrets/handles, 
-# especially via error/logging/extension surfaces.
-# SPEC_ID: §14.5.1-Registration-Ceremony-Privacy
-# SPEC_ID: §14.6.1-UserHandle-No-PII
-
 using Test, WebAuthn, Logging
 
-# SPEC_ID: §14.5.2-Authentication-Ceremony-Privacy
-# SPEC_ID: §13.4.7-Unprotected-Account-Detection
-# SPEC_ID: §14.2-Anonymity-and-Scoping
 @testset "Privacy/PII and Logging Policy" begin
 
     # 1. Custom logger captures all log messages for inspection.
@@ -29,10 +20,12 @@ using Test, WebAuthn, Logging
     logger = CaptureLogger()
     with_logger(logger) do
         try
-            WebAuthn.registration_options("priv.com", "priv", "secret@leak.me","n", "n")
+            WebAuthn.registration_options("priv.com", "priv", 
+            "secret@leak.me","n", "n")
         catch end
         try
-            WebAuthn.registration_options("piidemo.com", "p2","alice@example.com", "n", "n")
+            WebAuthn.registration_options("piidemo.com", "p2",
+            "alice@example.com", "n", "n")
         catch end
         try
             WebAuthn.parse_credential_public_key(rand(UInt8, 80))
@@ -61,7 +54,8 @@ using Test, WebAuthn, Logging
     logger2 = CaptureLogger()
     with_logger(logger2) do
         try
-            WebAuthn.registration_options("failure.com", "fail", "crashdude", "", "")
+            WebAuthn.registration_options("failure.com", "fail", 
+            "crashdude", "", "")
         catch end
     end
     all_logs2 = join(logger2.lines, " ")
@@ -72,7 +66,8 @@ using Test, WebAuthn, Logging
     # 5. Stdout (i.e. direct prints) must never leak anything PII
     redirect_stdout(devnull) do
         try
-            WebAuthn.registration_options("console.com", "console", "printer", "n", "n")
+            WebAuthn.registration_options("console.com", 
+            "console", "printer", "n", "n")
         catch end
     end
     redirect_stdout(devnull) do

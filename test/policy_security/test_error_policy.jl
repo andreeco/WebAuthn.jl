@@ -1,11 +1,3 @@
-# test_error_policy.jl
-# Purpose: Library MUST emit indistinguishable, non-leaky, PII-free error
-# messages for user id, username, and CBOR/COSE parsing failures.
-# SPEC_ID: §14.1-Deanonymization-Prevention
-# SPEC_ID: §14.5.1-Registration-Ceremony-Privacy
-# SPEC_ID: §14.6.2-Username-Enumeration-Prevention
-# SPEC_ID: §14.6.1-UserHandle-No-PII
-
 using Test, WebAuthn, CBOR
 
 @testset "Spec-mandated Error/Privacy Policy (Library)" begin
@@ -17,7 +9,8 @@ using Test, WebAuthn, CBOR
         msg = sprint(showerror, e)
         @test !occursin("demo.com", msg)
         @test occursin("user.id", msg)
-        @test occursin("1 and 64", msg) || occursin("between", msg) || occursin("bytes", msg)
+        @test occursin("1 and 64", msg) || occursin("between", msg) ||
+              occursin("bytes", msg)
     end
 
     # 2. user.id too long (PII/long/repeated value)
@@ -48,7 +41,7 @@ using Test, WebAuthn, CBOR
         msg = sprint(showerror, e)
         @test !occursin("ok", msg)
         @test occursin("user.name", msg) || occursin("required", msg) ||
-            occursin("empty", msg)
+              occursin("empty", msg)
     end
 
     # 3b. Empty displayName must NOT error (allowed by spec)
@@ -63,7 +56,8 @@ using Test, WebAuthn, CBOR
         @test !occursin("[]", msg)
         @test typeof(msg) == String
     end
-    bad_cose = CBOR.encode(Dict(1 => 1, -1 => 6, -2 => rand(UInt8, 32), 3 => -232435))
+    bad_cose = CBOR.encode(
+        Dict(1 => 1, -1 => 6, -2 => rand(UInt8, 32), 3 => -232435))
     try
         cose_key_parse(CBOR.decode(bad_cose))
         @test false
@@ -84,7 +78,6 @@ using Test, WebAuthn, CBOR
         end
     end
     for (msg, tid) in zip(errs, test_ids)
-        # SPEC_ID: §14.6.3-CredentialID-Enumeration-Prevention
         @test !occursin(tid, msg)
     end
 

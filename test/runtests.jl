@@ -3,7 +3,6 @@ using WebAuthn: load_vector, VECTORS_DIR
 
 @warn "AI involvement in test coverage may deceive about how 
 thoroughly the code is tested. Human review wanted and needed!
-Also the annotations of SPEC_ID must be checked!
 "
 
 #include("helpers/asn1.jl")

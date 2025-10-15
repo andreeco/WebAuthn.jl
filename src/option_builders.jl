@@ -61,7 +61,6 @@ function registration_options(rpid::String, rpname::String, user_id,
     end
 
     # Exclude credentials as needed
-    # SPEC_ID: §5.8.3-PublicKeyCredentialDescriptor
     exclude = [Dict("type" => "public-key", "id" => id) for id in exclude_ids]
 
     # Baseline options
@@ -71,7 +70,6 @@ function registration_options(rpid::String, rpname::String, user_id,
             "displayName" => user_display),
         "challenge" => challenge === nothing ? generate_challenge() : challenge,
         "pubKeyCredParams" => [
-            # SPEC_ID: §5.8.2-PublicKeyCredentialType
             Dict("type" => "public-key", "alg" => -7),
             Dict("type" => "public-key", "alg" => -257)
         ],

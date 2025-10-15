@@ -1,14 +1,5 @@
-# test_attestation_neg.jl
-# Purpose: All malformed, corrupt, fuzzed, or partial attestation CBORs must be
-# correctly and securely rejected (no ghost success, no crash).
-# SPEC_ID: §8.2-packed-Format-RequiredFields
-# SPEC_ID: §8-Unknown-Attestation-Format
-# SPEC_ID: §6.5.2-AttestationStatementFormats-Structure
-
 using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
 
-# SPEC_ID: §13.1-§13.4-Fuzz-Resistance
-# SPEC_ID: §16-TestVectors-Happy-Negative
 @testset "Attestation Negative/Edge Cases" begin
     # -- 1. Corrupted signature (alg mismatch, random bytes, tampered) --
     cdj = JSON3.write(Dict("type" => "webauthn.create", "challenge" => "fail"))
@@ -76,7 +67,6 @@ using Test, WebAuthn, CBOR, SHA, Sodium, JSON3
     @test !verify_attestation_object(b64_bad, cdj_b)
 end
 
-# SPEC_ID: §8.2-packed-Format-RequiredFields
 @testset "WebAuthn packed self-attestation alg/key mismatch" begin
     cdj = JSON3.write(Dict("type"=>"webauthn!create", "challenge"=>"abc"))
     cdj_b = Vector{UInt8}(cdj)

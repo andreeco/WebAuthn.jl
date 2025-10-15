@@ -1,7 +1,7 @@
 using Test, WebAuthn, Random, CBOR, JSON3, Sodium, SHA
 
 @testset "WebAuthn Unified High-Level API" begin
-    # --- SIMULATE A REGISTRATION ---
+    # SIMULATE A REGISTRATION
 
     # 1. Generate Ed25519 keypair
     pk = Vector{UInt8}(undef, Sodium.crypto_sign_PUBLICKEYBYTES)
@@ -51,14 +51,14 @@ using Test, WebAuthn, Random, CBOR, JSON3, Sodium, SHA
         "id" => cred_id_b64
     )
 
-    # --- HAPPY CASE ---
+    # HAPPY CASE
     reg_result = verify_registration_response(reg_response;
         expected_challenge=challenge, expected_origin=origin)
     @test reg_result.ok
     @test reg_result.public_key isa OKPPublicKey
     @test reg_result.credential_id == cred_id_b64
 
-    # --- ERRORS ---
+    # ERRORS
     # Wrong challenge
     bad_reg = deepcopy(reg_response)
     bad_reg["response"]["clientDataJSON"] = WebAuthn.base64urlencode(
@@ -81,7 +81,7 @@ using Test, WebAuthn, Random, CBOR, JSON3, Sodium, SHA
     @test !fail2.ok
     @test occursin("origin", lowercase(fail2.reason))
 
-    # --- SIMULATE AUTHENTICATION ---
+    # SIMULATE AUTHENTICATION
     clientData_authn_dict = Dict(
         "type" => "webauthn.get",
         "challenge" => challenge,
@@ -107,14 +107,14 @@ using Test, WebAuthn, Random, CBOR, JSON3, Sodium, SHA
         "id" => cred_id_b64
     )
 
-    # --- HAPPY CASE ---
+    # HAPPY CASE
     authn_result = verify_authentication_response(assert_response;
         public_key=reg_result.public_key, expected_challenge=challenge,
         expected_origin=origin, previous_signcount=0)
     @test authn_result.ok
     @test authn_result.credential_id == cred_id_b64
 
-    # --- SIGNATURE ERROR ---
+    # SIGNATURE ERROR
     bad_sig = copy(sig)
     bad_sig[1] ⊻= 0xFF
     bad_assert = deepcopy(assert_response)
@@ -125,7 +125,7 @@ using Test, WebAuthn, Random, CBOR, JSON3, Sodium, SHA
     @test !fail_authn.ok
     @test occursin("signature", lowercase(fail_authn.reason))
 
-    # --- SIGNCOUNT ERROR ---
+    # SIGNCOUNT ERROR
     fail_signcount = verify_authentication_response(assert_response;
         public_key=reg_result.public_key, expected_challenge=challenge,
         expected_origin=origin, previous_signcount=10)
@@ -134,7 +134,7 @@ using Test, WebAuthn, Random, CBOR, JSON3, Sodium, SHA
         @test r !== nothing && occursin("signcount", lowercase(String(r)))
     end
 
-    # --- USER PRESENCE/UV ERROR ---
+    # USER PRESENCE/UV ERROR
     bad_ad = copy(authData)
     bad_ad[33] &= ~0x01
     bad_up = deepcopy(assert_response)
