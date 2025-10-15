@@ -6,11 +6,12 @@ sequenceDiagram
     participant Browser
     participant Authenticator
     participant Server
-    Server->>Browser: Build options (`registration_options`)
-    Browser->>Authenticator: navigator.credentials.create(...)
+
+    Server->>Browser: Build registration options
+    Browser->>Authenticator: navigator.credentials.create(options)
     Authenticator-->>Browser: attestationObject, clientDataJSON
-    Browser->>Server: submits these responses
-    Server->>Server: verify using WebAuthn.jl
+    Browser->>Server: Submit attestationObject, clientDataJSON
+    Server->>Server: Verify attestation and register credential
 ```
 
 ### Authentication Workflow
@@ -21,9 +22,10 @@ sequenceDiagram
     participant Browser
     participant Authenticator
     participant Server
-    Server->>Browser: Build options (`authentication_options`)
-    Browser->>Authenticator: navigator.credentials.get(...)
+
+    Server->>Browser: Build authentication options
+    Browser->>Authenticator: navigator.credentials.get(options)
     Authenticator-->>Browser: assertion data
-    Browser->>Server: submits response
-    Server->>Server: verify signature etc.
+    Browser->>Server: Submit assertion data
+    Server->>Server: Verify signature, authenticator data
 ```
