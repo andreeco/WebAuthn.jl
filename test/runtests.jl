@@ -1,4 +1,4 @@
-using Test, WebAuthn, CBOR, Dates, JSON3, SHA, Sodium, Logging, Base64
+using Test, WebAuthn, CBOR, Dates, JSON3, SHA, Sodium, Logging, Base64, Random
 using WebAuthn: load_vector, VECTORS_DIR
 
 @warn "AI involvement in test coverage may deceive about how 
