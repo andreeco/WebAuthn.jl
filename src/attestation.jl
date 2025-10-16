@@ -135,13 +135,13 @@ function verify_attestation_packed(attStmt::Dict, msg::Vector{UInt8},
                 "attStmt[\"x5c\"] must be a non-empty vector of certificates"))
         end
         cert_der = certs[1]
-        pubkey_pem = der_to_pem(der, "PUBLIC KEY")
+        pubkey_pem = der_to_pem(cert_der, "PUBLIC KEY")
         if pubkey_pem === nothing
             @debug "extract_pubkey_pem_from_der could not extract a public key"
             return false
         end
         cert_der = certs[1]
-        pubkey_pem = der_to_pem(der, "PUBLIC KEY")
+        pubkey_pem = der_to_pem(cert_der, "PUBLIC KEY")
 
         if cose_alg == -7   # P-256
             x, y = parse_ec_pem_xy(pubkey_pem)
