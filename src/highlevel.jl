@@ -77,47 +77,42 @@ See also: [`cose_key_parse`](@ref), [`registration_options`](@ref),
 function verify_registration_response(response::Dict{String,Any};
     expected_challenge::AbstractString,
     expected_origin::AbstractString,
-    attestation_policy::String="packed"
-)
-    # 1. Get attestationObject, clientDataJSON
-    obj_b64 = response["response"]["attestationObject"]
-    cdj_b64 = response["response"]["clientDataJSON"]
-    credential_id = get(response, "id", nothing)
-
+    attestation_policy::String="packed")::NamedTuple
     try
-        # 2. Parse clientDataJSON
+        obj_b64 = response["response"]["attestationObject"]
+        cdj_b64 = response["response"]["clientDataJSON"]
+        credential_id = get(response, "id", nothing)
         cdj = parse_clientdata_json(cdj_b64)
-        # 3. Challenge & origin check
         if !verify_challenge(cdj_b64, expected_challenge)
             return (ok=false, reason="Challenge mismatch")
         end
         try
             verify_origin(cdj, expected_origin)
-        catch e
-            return (ok=false, reason="Origin mismatch: $(e.msg)")
+        catch
+            return (ok=false, reason="Origin mismatch")
         end
-        # 4. Parse attestation object
         attobj = parse_attestation_object(obj_b64)
-        # 5. Optionally verify attestation
         if attestation_policy != "skip"
-            if !verify_attestation_object(obj_b64, base64urldecode(cdj_b64))
-                return (ok=false, reason="Attestation verification failed.")
+            if !verify_attestation_object(obj_b64,
+                base64urldecode(cdj_b64))
+                return (ok=false, reason="Attestation verification failed")
             end
         end
-        # 6. Extract credential public key
         pkbytes = extract_credential_public_key(attobj["authData"])
         public_key = cose_key_parse(CBOR.decode(pkbytes))
-        credential_id = response["id"]
+
         return (
             ok=true,
             public_key=public_key,
             credential_id=credential_id,
             user_handle=get(response, "userHandle", nothing),
             attestation_format=attobj["fmt"],
-            sign_count=0,  # Not available at registration; may extract later
+            sign_count=0
         )
+
     catch e
-        return (ok=false, reason="Registration verification error: $(e)")
+        @error "verify_registration_response failed" exception = (e, catch_backtrace())
+        return (ok=false, reason="Registration verification failed")
     end
 end
 
@@ -218,45 +213,42 @@ function verify_authentication_response(response::Dict{String,Any};
     expected_challenge::AbstractString,
     expected_origin::AbstractString,
     previous_signcount::Integer=0,
-    require_uv::Bool=true
-)
+    require_uv::Bool=true)::NamedTuple
     try
         ad = base64urldecode(response["response"]["authenticatorData"])
         cdj_b64 = response["response"]["clientDataJSON"]
         cdj = parse_clientdata_json(cdj_b64)
         sig = base64urldecode(response["response"]["signature"])
-        # 1. Verify challenge
         if !verify_challenge(cdj_b64, expected_challenge)
             return (ok=false, reason="Challenge mismatch")
         end
-        # 2. Verify origin
         try
             verify_origin(cdj, expected_origin)
-        catch e
-            return (ok=false, reason="Origin mismatch: $(e.msg)")
+        catch
+            return (ok=false, reason="Origin mismatch")
         end
-        # 3. Verify signature
-        if !verify_webauthn_signature(public_key, ad, 
-            base64urldecode(cdj_b64), sig)
+        if !verify_webauthn_signature(public_key,
+            ad,
+            base64urldecode(cdj_b64),
+            sig)
             return (ok=false, reason="Signature verification failed")
         end
-        # 4. User presence/verification flags
         try
             enforce_up_uv(ad; require_uv=require_uv)
-        catch e
-            return (ok=false, reason="UP/UV flags check failed: $(e.msg)")
+        catch
+            return (ok=false, reason="UP/UV flags check failed")
         end
-        # 5. Sign count
-        signcount_bytes = ad[34:37]
-        new_signcount = (UInt32(signcount_bytes[1]) << 24) |
-                        (UInt32(signcount_bytes[2]) << 16) |
-                        (UInt32(signcount_bytes[3]) << 8) |
-                        UInt32(signcount_bytes[4])
+        sc = ad[34:37]
+        new_signcount = (UInt32(sc[1]) << 24) |
+                        (UInt32(sc[2]) << 16) |
+                        (UInt32(sc[3]) << 8) |
+                        UInt32(sc[4])
         try
             enforce_signcount(previous_signcount, new_signcount)
-        catch e
-            return (ok=false, reason="signCount: $(e.msg)")
+        catch
+            return (ok=false, reason="signCount did not increase")
         end
+
         return (
             ok=true,
             new_signcount=new_signcount,
@@ -265,6 +257,8 @@ function verify_authentication_response(response::Dict{String,Any};
             reason=nothing
         )
     catch e
-        return (ok=false, reason="Authentication verification error: $(e)")
+        @error "verify_authentication_response failed" exception = (e,
+            catch_backtrace())
+        return (ok=false, reason="Authentication verification failed")
     end
 end
