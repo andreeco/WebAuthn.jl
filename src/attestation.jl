@@ -127,7 +127,9 @@ function verify_attestation_packed(attStmt::Dict, msg::Vector{UInt8},
     if !(cose_alg in (-7, -257, -8))
         error("Unsupported packed alg $cose_alg")
     end
-
+    # SECURITY WARNING: x5c attestation cert chains are NOT validated here—only 
+    # signature is checked; do NOT trust device attestation without full X.509 
+    # validation implemented.
     if haskey(attStmt, "x5c")
         certs = attStmt["x5c"]
         if !(certs isa AbstractVector) || isempty(certs)
