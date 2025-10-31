@@ -28,7 +28,7 @@ This code is experimental. All cryptographic validation is enforced by OpenSSL o
 
 1. **Install this package:**
    ```
-   ] add WebAuthn
+   ] add https://github.com/andreeco/WebAuthn.jl
    ```
 2. **Import into your Julia session:**
    ```julia

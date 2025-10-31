@@ -26,7 +26,7 @@ It provides end-to-end functions for registration and login, CBOR/COSE key parsi
 
 1. **Install this package:**
    ```
-   ] add WebAuthn
+   ] add https://github.com/andreeco/WebAuthn.jl
    ```
 2. **Import into your Julia session:**
    ```julia
