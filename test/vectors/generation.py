@@ -8,7 +8,6 @@
 #  grep -r 'load_vector' .
 
 #!/usr/bin/env python3
-# MIT, all rights reserved.
 
 import os, base64, struct, json, datetime
 from pathlib import Path
@@ -56,14 +55,12 @@ def distant_future():
 
 def save_keypair(path, priv):
     pub = priv.public_key()
-    # Write PEM
     wr(path / "privkey.pem", priv.private_bytes(
         Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()
     ))
     wr(path / "pubkey.pem", pub.public_bytes(
         Encoding.PEM, PublicFormat.SubjectPublicKeyInfo
     ))
-    # ALSO write DER!
     wr(path / "pubkey.der", pub.public_bytes(
         Encoding.DER, PublicFormat.SubjectPublicKeyInfo
     ))
@@ -241,7 +238,6 @@ def register_and_assertion(
     )
     wr(base/"registration"/"attestationObject.cbor", bytes(attobj))
 
-    # Assertion
     msg_auth = bytes(authdata) + sha256(client_data_auth)
     if isinstance(privkey, ec.EllipticCurvePrivateKey):
         sig_auth = privkey.sign(msg_auth, ec.ECDSA(hashes.SHA256()))
@@ -341,7 +337,6 @@ def generate_x509_der_vectors():
     (outdir/"x509_ee.der").write_bytes(ee_cert.public_bytes(Encoding.DER))
     (outdir/"x509_ee.pem").write_bytes(ee_cert.public_bytes(Encoding.PEM))
 
-    # RSA CA (1024-bit for test)
     rsa_priv = rsa.generate_private_key(
         public_exponent=65537,
         key_size=1024,
@@ -395,7 +390,7 @@ def generate_spki_vectors():
     (outdir/"ed25519_spki.pem").write_bytes(ed_spki_pem)
     (outdir/"ed25519_spki.der").write_bytes(ed_spki_der)
 
-    print("✓ SPKI test pubkey files generated in keys/")
+    print("SPKI test pubkey files generated.")
 
 def generate_rsa_raw_der():
     """
@@ -459,7 +454,7 @@ def main():
     generate_x509_der_vectors()
     generate_spki_vectors()
     generate_rsa_raw_der()
-    print("✔️  MIT-licensed, all major WebAuthn vectors generated.")
+    print("Test vectors generated.")
 
 if __name__ == "__main__":
     main()

@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-# MIT, all rights reserved.
-
 import os
 from pathlib import Path
 from cryptography.hazmat.primitives.asymmetric import ec
